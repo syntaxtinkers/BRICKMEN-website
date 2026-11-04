@@ -289,14 +289,14 @@ async function loadProjectPhotos(card){
  var panel=card.querySelector('[data-photo-library]'),grid=card.querySelector('[data-photo-grid]'),count=card.querySelector('[data-photo-count]');
  panel.classList.add('open');grid.textContent='Loading photographs…';count.textContent='Loading';
  try{
-  var result=await apiRequest('/api/studio/media?projectId='+encodeURIComponent(card.dataset.projectCard));
+  var result=await apiRequest('/api/studio/projects?resource=media&projectId='+encodeURIComponent(card.dataset.projectCard));
   grid.textContent='';count.textContent=result.photos.length+' found';
   if(!result.photos.length){grid.textContent='No image files found in this Drive project folder.';return;}
   result.photos.forEach(function(photo){
    var item=document.createElement('div');item.className='photo-item';item.dataset.fileId=photo.drive_file_id;
-   var img=document.createElement('img');img.alt=photo.name||'Project photograph';img.loading='lazy';img.src='/api/studio/media?projectId='+encodeURIComponent(card.dataset.projectCard)+'&preview='+encodeURIComponent(photo.drive_file_id);
+   var img=document.createElement('img');img.alt=photo.name||'Project photograph';img.loading='lazy';img.src='/api/studio/projects?resource=media&projectId='+encodeURIComponent(card.dataset.projectCard)+'&preview='+encodeURIComponent(photo.drive_file_id);
    // Authenticated image fetch: the private preview endpoint never exposes a public URL.
-   img.removeAttribute('src');fetch('/api/studio/media?projectId='+encodeURIComponent(card.dataset.projectCard)+'&preview='+encodeURIComponent(photo.drive_file_id),{headers:{Authorization:'Bearer '+session.access_token}}).then(function(r){if(!r.ok)throw new Error('Preview unavailable');return r.blob();}).then(function(blob){img.src=URL.createObjectURL(blob);}).catch(function(){img.alt='Preview unavailable';});
+   img.removeAttribute('src');fetch('/api/studio/projects?resource=media&projectId='+encodeURIComponent(card.dataset.projectCard)+'&preview='+encodeURIComponent(photo.drive_file_id),{headers:{Authorization:'Bearer '+session.access_token}}).then(function(r){if(!r.ok)throw new Error('Preview unavailable');return r.blob();}).then(function(blob){img.src=URL.createObjectURL(blob);}).catch(function(){img.alt='Preview unavailable';});
    var name=document.createElement('strong');name.textContent=photo.name;var info=document.createElement('small');info.textContent=photo.selected?'Imported to Studio':'Available in Google Drive';
    item.appendChild(img);item.appendChild(name);item.appendChild(info);
    if(photo.selected&&photo.media){
@@ -312,8 +312,8 @@ async function handlePhotoAction(button){
  var card=button.closest('[data-project-card]'),item=button.closest('.photo-item');if(!card||!item)return;
  button.disabled=true;var action=button.dataset.photoAction;
  try{
-  if(action==='import')await apiRequest('/api/studio/media','POST',{action:'import',projectId:card.dataset.projectCard,fileId:item.dataset.fileId});
-  if(action==='cover')await apiRequest('/api/studio/media','POST',{action:'update',projectId:card.dataset.projectCard,mediaId:button.dataset.mediaId,is_cover:true});
+  if(action==='import')await apiRequest('/api/studio/projects','POST',{action:'import',projectId:card.dataset.projectCard,fileId:item.dataset.fileId});
+  if(action==='cover')await apiRequest('/api/studio/projects','POST',{action:'update',projectId:card.dataset.projectCard,mediaId:button.dataset.mediaId,is_cover:true});
   await refreshPortfolioProjects();var refreshedCard=document.querySelector('[data-project-card="'+card.dataset.projectCard+'"]');if(refreshedCard)await loadProjectPhotos(refreshedCard);
  }catch(err){showMessage('portfolioMessage',err.message);button.disabled=false;}
 }
