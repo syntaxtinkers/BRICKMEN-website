@@ -37,7 +37,7 @@ async function listDrivePage(accessToken, pageToken) {
   url.searchParams.set('q', 'trashed = false');
   url.searchParams.set('pageSize', '1000');
   url.searchParams.set('orderBy', 'modifiedTime desc');
-  url.searchParams.set('fields', 'nextPageToken,incompleteSearch,files(id,name,mimeType,parents,createdTime,modifiedTime,webViewLink,thumbnailLink,size,md5Checksum,description,driveId,shortcutDetails(targetId,targetMimeType))');
+  url.searchParams.set('fields', 'nextPageToken,incompleteSearch,files(id,name,mimeType,parents,createdTime,modifiedTime,sharedWithMeTime,webViewLink,thumbnailLink,size,md5Checksum,description,driveId,shortcutDetails(targetId,targetMimeType))');
   if (pageToken) url.searchParams.set('pageToken', pageToken);
   const response = await fetch(url.toString(), {
     method: 'GET',
