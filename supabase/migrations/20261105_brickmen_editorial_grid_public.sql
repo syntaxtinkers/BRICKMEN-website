@@ -1,3 +1,6 @@
+-- Ensure draft publishing works even where the draft column migration has not yet been applied.
+alter table public.brickmen_projects add column if not exists draft_content jsonb;
+
 -- Publish the 5 mm editorial grid layout and media IDs to the public portfolio.
 -- Additive only: this replaces the public read function without changing project rows or files.
 
