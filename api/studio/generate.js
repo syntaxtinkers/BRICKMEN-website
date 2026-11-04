@@ -1,6 +1,6 @@
 'use strict';
 const { sendJson, methodNotAllowed, requireAdmin } = require('../_lib/admin');
-const base = () => (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
+const base = () => (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const key = () => process.env.SUPABASE_SECRET_KEY || '';
 async function db(path, method, body, prefer) {
  const response = await fetch(base() + '/rest/v1/' + path, { method: method || 'GET', headers: { apikey: key(), Authorization: 'Bearer ' + key(), 'Content-Type': 'application/json', Accept: 'application/json', ...(prefer ? { Prefer: prefer } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -9,7 +9,7 @@ async function db(path, method, body, prefer) {
 }
 function parseBody(req) { if (req.body && typeof req.body === 'object') return req.body; if (typeof req.body === 'string') { try { return JSON.parse(req.body); } catch (_) {} } return {}; }
 function outputText(data) { if (typeof data.output_text === 'string') return data.output_text; const out = []; (data.output || []).forEach(x => (x.content || []).forEach(y => { if (y.type === 'output_text' && y.text) out.push(y.text); })); return out.join('\n'); }
-function parseJson(text) { const s = String(text || '').replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '').trim(); try { return JSON.parse(s); } catch (_) {} const a = s.indexOf('{'), b = s.lastIndexOf('}'); if (a >= 0 && b > a) return JSON.parse(s.slice(a, b + 1)); throw new Error('The AI service returned an unreadable project draft.'); }
+function parseJson(text) { const s = String(text || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim(); try { return JSON.parse(s); } catch (_) {} const a = s.indexOf('{'), b = s.lastIndexOf('}'); if (a >= 0 && b > a) return JSON.parse(s.slice(a, b + 1)); throw new Error('The AI service returned an unreadable project draft.'); }
 module.exports = async function generateProject(req, res) {
  const user = await requireAdmin(req, res); if (!user) return; if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
  try {
