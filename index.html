@@ -1018,6 +1018,35 @@ renderAll();
 })();
 </script>
 
+
+<script>
+/* Live public portfolio: approved projects replace the original demo project cards when available. */
+(function(){
+ 'use strict';
+ var host=document.getElementById('homeProjects');
+ if(!host)return;
+ function esc(value){return String(value===null||value===undefined?'':value).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
+ function render(projects){
+  if(!Array.isArray(projects)||!projects.length)return;
+  host.innerHTML=projects.map(function(project){
+   var media=Array.isArray(project.media)?project.media:[];
+   var cover=media.find(function(item){return item.is_cover;})||media[0];
+   var image=cover&&cover.url?'<img src="'+esc(cover.url)+'" alt="'+esc(cover.alt_text||project.title||'Brickmen project')+'" loading="lazy">':'<div class="project-placeholder">Project image</div>';
+   var title=project.title?'<h3 class="project-title">'+esc(project.title)+'</h3>':'';
+   var meta=[project.location,project.category].filter(Boolean).join(' · ');
+   var sub=meta?'<div class="project-sub">'+esc(meta)+'</div>':'';
+   var year=project.project_year?'<div class="project-year">'+esc(project.project_year)+'</div>':'';
+   var description=project.description?'<p class="project-sub" style="line-height:1.7;max-width:580px;margin-top:12px">'+esc(project.description)+'</p>':'';
+   return '<article class="project-card" data-live-project="'+esc(project.slug)+'"><div class="project-image">'+image+'</div><div class="project-meta"><div>'+title+sub+'</div>'+year+'</div>'+description+'</article>';
+  }).join('');
+  host.dataset.portfolioSource='database';
+ }
+ fetch('/api/portfolio',{cache:'no-store'}).then(function(response){if(!response.ok)throw new Error('Portfolio unavailable');return response.json();})
+  .then(function(result){render(result.projects||[]);})
+  .catch(function(){/* Keep the existing site content as a graceful fallback. */});
+})();
+</script>
+
 </body></html>`;
     const win=window.open('','_blank');if(!win){alert('Please allow pop-ups for this local prototype, then try again.');return}win.document.open();win.document.write(html);win.document.close();
   });
