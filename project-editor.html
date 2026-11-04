@@ -283,6 +283,7 @@ async function generateAiDraft(automatic){
   $('description').value=project.draft_content.description||$('description').value;
   var savedLayout=await request('/api/studio/projects?resource=layout&projectId='+encodeURIComponent(projectId));
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
+  selectedLayoutIndex=null;dragState=null;
   $('layoutTemplate').value=draftLayout.template||'editorial';
   await loadPhotos();
   renderPreview();
