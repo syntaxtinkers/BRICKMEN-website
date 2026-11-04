@@ -30,7 +30,7 @@ async function getFreshAccessToken(connection) {
 
 async function listDrivePage(accessToken, pageToken) {
   const url = new URL('https://www.googleapis.com/drive/v3/files');
-  url.searchParams.set('corpora', 'user');
+  url.searchParams.set('corpora', 'allDrives');
   url.searchParams.set('includeItemsFromAllDrives', 'true');
   url.searchParams.set('supportsAllDrives', 'true');
   url.searchParams.set('spaces', 'drive');
