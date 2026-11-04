@@ -42,8 +42,22 @@ module.exports = async function googleCallback(req, res) {
     });
     if (!tokenResponse.ok) return redirect(res, base, 'token_error');
     const token = await tokenResponse.json();
-    const grantedScopes = String(token.scope || '').split(/\s+/).filter(Boolean);
-    if (!token.access_token || !grantedScopes.includes('https://www.googleapis.com/auth/drive.readonly')) {
+    if (!token.access_token) return redirect(res, base, 'token_error');
+
+    // Google's OAuth token response may omit "scope" when the granted scopes
+    // are identical to those requested. Verify the effective scopes with
+    // Google's token-info endpoint instead of treating an omitted field as denial.
+    let scopeText = String(token.scope || '');
+    if (!scopeText.trim()) {
+      const infoUrl = new URL('https://oauth2.googleapis.com/tokeninfo');
+      infoUrl.searchParams.set('access_token', token.access_token);
+      const infoResponse = await fetch(infoUrl.toString(), { method: 'GET' });
+      if (!infoResponse.ok) return redirect(res, base, 'scope_error');
+      const tokenInfo = await infoResponse.json();
+      scopeText = String(tokenInfo.scope || '');
+    }
+    const grantedScopes = scopeText.split(/\s+/).filter(Boolean);
+    if (!grantedScopes.includes('https://www.googleapis.com/auth/drive.readonly')) {
       return redirect(res, base, 'scope_error');
     }
     const profileResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
