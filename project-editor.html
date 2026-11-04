@@ -38,7 +38,9 @@
   <div class="field"><label for="startDate">Start date</label><input id="startDate" type="date"></div>
  </div>
  <div class="field"><label for="description">Project story / description</label><textarea id="description" maxlength="12000" placeholder="Write the approved project narrative here."></textarea></div>
- <button class="btn light" id="starterCopy" type="button">Create a starter description</button>
+ <div class="field"><label for="aiTone">AI writing tone</label><select id="aiTone"><option>Classy</option><option>Editorial</option><option>Minimal</option><option>Technical</option><option>Poetic</option></select></div>
+ <div class="photo-tools"><button class="btn" id="generatePage" type="button">Generate page with AI</button><button class="btn light" id="starterCopy" type="button">Create a basic starter</button></div>
+ <div class="hint">AI analyses imported project photographs and metadata, then proposes editable text, captions and a page direction. Its suggestions are saved as drafts only and require your review.</div>
  <div class="section-title"><strong>Project photographs</strong><span id="photoCount">Loading…</span></div>
  <div class="photo-tools">
   <button class="btn" id="prepareAll" type="button">Prepare all photos</button>
@@ -171,7 +173,10 @@ async function preparePhotos(){
    await loadPhotos();
   }
   if(!pending.length)message('All available project photographs have already been prepared.');
-  else message(complete+' photographs prepared privately'+(skipped?'; '+skipped+' exceeded the storage limit':'')+'. Review the gallery and hide anything you do not want on the public page.');
+  else {
+   message(complete+' photographs prepared privately'+(skipped?'; '+skipped+' exceeded the storage limit':'')+'. Review the gallery and hide anything you do not want on the public page.');
+   if(!(project.draft_content&&project.draft_content.ai_generated_at))await generateAiDraft(true);
+  }
  }catch(error){message(error.message+' You can run Prepare all photos again to continue.');}
  finally{busy=false;button.disabled=false;button.textContent='Prepare all photos';}
 }
@@ -209,6 +214,26 @@ async function saveDraft(){
  return saved;
 }
 function coverId(){var p=orderedPhotos().find(function(x){return x.media&&x.media.is_cover;})||orderedPhotos()[0];return p?p.drive_file_id:null;}
+async function generateAiDraft(automatic){
+ if(busy)return false;
+ if(!automatic&&!confirm('Analyse the imported project photographs and create a fresh editable text and design proposal? This will replace the current draft description and photo captions.'))return false;
+ busy=true;clearMessage();var button=$('generatePage');button.disabled=true;button.textContent='Analysing photographs…';
+ try{
+  var result=await request('/api/studio/generate','POST',{projectId:projectId,tone:$('aiTone').value||'Classy'});
+  project.draft_content=result.draft_content||project.draft_content||{};
+  $('title').value=project.draft_content.title||$('title').value;
+  $('category').value=project.draft_content.category||$('category').value;
+  $('description').value=project.draft_content.description||$('description').value;
+  var savedLayout=await request('/api/studio/layout?projectId='+encodeURIComponent(projectId));
+  if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
+  $('layoutTemplate').value=draftLayout.template||'editorial';
+  await loadPhotos();
+  renderPreview();
+  message('AI created an editable '+$('aiTone').value.toLowerCase()+' draft after analysing '+result.analyzed_photos+' photographs'+(result.skipped_photos?'; '+result.skipped_photos+' large or unavailable images were skipped':'')+'. Review every detail before publishing.');
+  return true;
+ }catch(error){message(error.message);return false;}
+ finally{busy=false;button.disabled=false;button.textContent='Generate page with AI';}
+}
 async function publish(){
  if(busy)return;
  if(!confirm('Publish this project and all imported, visible photographs to the public Brickmen website? Hidden photographs will remain private.'))return;
@@ -253,6 +278,7 @@ $('photoList').addEventListener('click',async function(event){
 });
 ['title','location','category','year','startDate','description'].forEach(function(id){$(id).addEventListener('input',renderPreview);});
 $('starterCopy').addEventListener('click',starterDescription);
+$('generatePage').addEventListener('click',function(){generateAiDraft(false);});
 ['brightness','contrast','saturation'].forEach(function(id){$(id).addEventListener('input',function(){$(id+'Value').textContent=this.value+'%';});});
 $('saveAdjustments').addEventListener('click',applyAdjustments);
 $('prepareAll').addEventListener('click',preparePhotos);$('refreshPhotos').addEventListener('click',loadPhotos);
@@ -272,7 +298,10 @@ async function init(){
   await loadPhotos();
   var pending=photos.filter(function(p){return !p.selected;});
   if(pending.length){$('photoHint').textContent='Automatically preparing '+pending.length+' project images in private storage. You can continue editing while the photo library updates.';preparePhotos();}
-  else $('photoHint').textContent='All indexed project photographs are already prepared. Hide any image you do not want published.';
+  else {
+   $('photoHint').textContent='All indexed project photographs are already prepared. Hide any image you do not want published.';
+   if(!(project.draft_content&&project.draft_content.ai_generated_at))generateAiDraft(true);
+  }
  }catch(error){message(error.message);$('status').textContent='Unable to load this project.';}
 }
 init();
