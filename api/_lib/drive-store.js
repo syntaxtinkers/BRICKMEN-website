@@ -65,6 +65,7 @@ async function upsertDriveItems(files) {
     md5_checksum: file.md5Checksum || null,
     description: file.description || null,
     drive_id: file.driveId || null,
+    shared_with_me_time: file.sharedWithMeTime || null,
     is_folder: file.mimeType === 'application/vnd.google-apps.folder',
     last_seen_at: now
   }));
