@@ -43,7 +43,7 @@ This first phase establishes and verifies the secure OAuth connection only. The 
 
 After the Google Drive status reads "connected", run the additive migration `supabase/migrations/20261104_drive_archive_inventory.sql` in the Supabase SQL Editor. It creates private tables for Drive file metadata, scan progress, and project-folder review candidates. It does not modify the OAuth connection table or any existing portfolio content.
 
-After the migration is applied and the latest Vercel deployment is Ready, return to `/studio.html` and choose **Scan Google Drive**. The scanner uses the read-only Drive API with the `user` corpus and shared-drive support enabled. It indexes metadata in batches, computes each candidate folder's start date from the earliest descendant file creation time, and marks folders inside archive paths. Candidates remain private and unpublished.
+After the migration is applied and the latest Vercel deployment is Ready, return to `/studio.html` and choose **Scan Google Drive**. The scanner uses the read-only Drive API with the `allDrives` corpus and shared-drive support enabled. It indexes metadata in batches, computes each candidate folder's start date from the earliest descendant file creation time, and marks folders inside archive paths. Google can mark very large all-drive searches as incomplete; the Studio page displays that warning instead of silently treating the inventory as exhaustive. Candidates remain private and unpublished.
 
 The initial scan builds a metadata inventory and folder candidates. AI image classification, project descriptions, and final publishing approvals are a subsequent phase; no Drive files are modified or copied during this inventory scan.
 
