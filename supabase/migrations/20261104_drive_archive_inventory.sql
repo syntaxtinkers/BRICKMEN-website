@@ -99,9 +99,9 @@ begin
         coalesce(cardinality(f.parent_ids), 0) = 0
         or not exists (
           select 1
-          from unnest(f.parent_ids) as parent_id
+          from unnest(f.parent_ids) as u(parent_id)
           join public.brickmen_drive_items p
-            on p.drive_file_id = parent_id
+            on p.drive_file_id = u.parent_id
            and p.is_folder
         )
       )
@@ -122,23 +122,23 @@ begin
     select
       f.drive_file_id as file_id,
       f.created_time,
-      parent_id as ancestor_id,
-      array[parent_id]::text[] as path_ids
+      u.parent_id as ancestor_id,
+      array[u.parent_id]::text[] as path_ids
     from public.brickmen_drive_items f
-    cross join unnest(f.parent_ids) as parent_id
+    cross join unnest(f.parent_ids) as u(parent_id)
     where not f.is_folder
     union all
     select
       fa.file_id,
       fa.created_time,
-      parent_id as ancestor_id,
-      fa.path_ids || parent_id
+      u.parent_id as ancestor_id,
+      fa.path_ids || u.parent_id
     from file_ancestors fa
     join public.brickmen_drive_items parent
       on parent.drive_file_id = fa.ancestor_id
      and parent.is_folder
-    cross join unnest(parent.parent_ids) as parent_id
-    where not parent_id = any(fa.path_ids)
+    cross join unnest(parent.parent_ids) as u(parent_id)
+    where not u.parent_id = any(fa.path_ids)
   ),
   stats as (
     select
@@ -150,12 +150,12 @@ begin
   ),
   direct_stats as (
     select
-      parent_id as drive_folder_id,
+      u.parent_id as drive_folder_id,
       count(*)::integer as direct_file_count
     from public.brickmen_drive_items f
-    cross join unnest(f.parent_ids) as parent_id
+    cross join unnest(f.parent_ids) as u(parent_id)
     where not f.is_folder
-    group by parent_id
+    group by u.parent_id
   )
   insert into public.brickmen_drive_project_candidates (
     drive_folder_id, name, parent_folder_id, folder_path,
