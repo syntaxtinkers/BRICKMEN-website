@@ -127,11 +127,33 @@ module.exports = async function studioProjects(req, res) {
     }
 
     if (action === 'publish') {
-      const media = await db('brickmen_project_media?select=id&project_id=eq.' + encodeURIComponent(projectId) +
-        '&is_public=eq.true&is_hidden=eq.false&public_storage_path=not.is.null&limit=1');
-      if (!Array.isArray(media) || !media.length) {
-        return sendJson(res, 409, { error: 'Select and prepare at least one public photograph before publishing this project.' });
+      // Publishing is the explicit approval gate: copy every imported, visible image
+      // from private review storage to the public portfolio bucket.
+      const projectMedia = await db('brickmen_project_media?select=id,drive_file_id,file_name,mime_type,private_storage_path,public_storage_path,is_hidden&project_id=eq.' + encodeURIComponent(projectId));
+      let prepared = 0;
+      for (const item of (Array.isArray(projectMedia) ? projectMedia : [])) {
+        if (item.is_hidden) continue;
+        if (item.public_storage_path) { prepared++; continue; }
+        if (!item.private_storage_path) continue;
+        const source = await fetch(base() + '/storage/v1/object/brickmen-studio-private/' + item.private_storage_path, {
+          headers: { apikey: key(), Authorization: 'Bearer ' + key() }
+        });
+        if (!source.ok) throw new Error('Could not read private image "' + item.file_name + '" before publishing (HTTP ' + source.status + ').');
+        const safeName = String(item.file_name || 'image').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-100);
+        const publicPath = projectId + '/' + item.id + '-' + safeName;
+        const upload = await fetch(base() + '/storage/v1/object/brickmen-portfolio-public/' + publicPath, {
+          method: 'POST',
+          headers: { apikey: key(), Authorization: 'Bearer ' + key(), 'Content-Type': item.mime_type || 'application/octet-stream', 'x-upsert': 'true' },
+          body: Buffer.from(await source.arrayBuffer())
+        });
+        if (!upload.ok) throw new Error('Could not prepare "' + item.file_name + '" for the public portfolio (HTTP ' + upload.status + ').');
+        const updated = await db('brickmen_project_media?id=eq.' + encodeURIComponent(item.id) + '&project_id=eq.' + encodeURIComponent(projectId), 'PATCH', {
+          is_public: true, public_storage_path: publicPath, updated_at: new Date().toISOString()
+        }, 'return=representation');
+        if (!Array.isArray(updated) || !updated.length) throw new Error('A copied image could not be linked to its project.');
+        prepared++;
       }
+      if (!prepared) return sendJson(res, 409, { error: 'Import at least one photograph to this project before publishing.' });
       const now = new Date().toISOString();
       const rows = await db('brickmen_projects?id=eq.' + encodeURIComponent(projectId), 'PATCH', {
         review_status: 'approved',
@@ -152,6 +174,20 @@ module.exports = async function studioProjects(req, res) {
       }, 'return=representation');
       if (!Array.isArray(rows) || !rows.length) return sendJson(res, 404, { error: 'Project not found.' });
       return sendJson(res, 200, { project: rows[0] });
+    }
+
+    if (action === 'delete') {
+      const media = await db('brickmen_project_media?select=id,private_storage_path,public_storage_path&project_id=eq.' + encodeURIComponent(projectId));
+      for (const item of (Array.isArray(media) ? media : [])) {
+        for (const bucketPath of [['brickmen-studio-private', item.private_storage_path], ['brickmen-portfolio-public', item.public_storage_path]]) {
+          if (!bucketPath[1]) continue;
+          await fetch(base() + '/storage/v1/object/' + bucketPath[0] + '/' + bucketPath[1], {
+            method: 'DELETE', headers: { apikey: key(), Authorization: 'Bearer ' + key() }
+          });
+        }
+      }
+      await db('brickmen_projects?id=eq.' + encodeURIComponent(projectId), 'DELETE');
+      return sendJson(res, 200, { deleted: true, driveFilesUntouched: true });
     }
 
     if (action === 'reject') {
