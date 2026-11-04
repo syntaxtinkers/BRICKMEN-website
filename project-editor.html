@@ -110,7 +110,7 @@ function starterDescription(){
 function blobFor(id){return objects[id]||'';}
 async function imageFor(photo){
  if(objects[photo.drive_file_id])return objects[photo.drive_file_id];
- var response=await fetch('/api/studio/media?projectId='+encodeURIComponent(projectId)+'&preview='+encodeURIComponent(photo.drive_file_id),{headers:{Authorization:'Bearer '+session.access_token}});
+ var response=await fetch('/api/studio/projects?resource=media&projectId='+encodeURIComponent(projectId)+'&preview='+encodeURIComponent(photo.drive_file_id),{headers:{Authorization:'Bearer '+session.access_token}});
  if(!response.ok)throw new Error('Photo preview unavailable: '+photo.name);
  var url=URL.createObjectURL(await response.blob());objects[photo.drive_file_id]=url;return url;
 }
@@ -141,10 +141,10 @@ async function renderPhotos(){
  renderPreview();
 }
 async function loadPhotos(){
- var result=await request('/api/studio/media?projectId='+encodeURIComponent(projectId));photos=result.photos||[];await renderPhotos();
+ var result=await request('/api/studio/projects?resource=media&projectId='+encodeURIComponent(projectId));photos=result.photos||[];await renderPhotos();
 }
 async function updateMedia(mediaId,patch){
- return request('/api/studio/media','POST',Object.assign({action:'update',projectId:projectId,mediaId:mediaId},patch));
+ return request('/api/studio/projects','POST',Object.assign({action:'update',projectId:projectId,mediaId:mediaId},patch));
 }
 function openAdjustments(photo){
  if(!photo||!photo.media)return;
@@ -167,7 +167,7 @@ async function preparePhotos(){
   var complete=0,skipped=0;
   for(var i=0;i<pending.length;i+=3){
    var ids=pending.slice(i,i+3).map(function(p){return p.drive_file_id;});
-   var response=await request('/api/studio/media','POST',{action:'import_batch',projectId:projectId,fileIds:ids});
+   var response=await request('/api/studio/projects','POST',{action:'import_batch',projectId:projectId,fileIds:ids});
    (response.imported||[]).forEach(function(item){if(item.skipped)skipped++;else complete++;});
    button.textContent='Preparing '+Math.min(i+3,pending.length)+' / '+pending.length;
    $('photoHint').textContent=complete+' photographs imported to private storage'+(skipped?' · '+skipped+' skipped':'')+'. Original Drive files remain unchanged.';
@@ -209,7 +209,7 @@ async function saveDraft(){
    {type:'intro',text:content.description},
    {type:'gallery',mediaIds:visible.map(function(p){return p.drive_file_id;})}
   ]};
-  await request('/api/studio/layout','POST',{projectId:projectId,canvas:{width:240,columns:48,unit:'grid'},draft_layout:draftLayout});
+  await request('/api/studio/projects','POST',{action:'save_layout',projectId:projectId,canvas:{width:240,columns:48,unit:'grid'},draft_layout:draftLayout});
   message('Draft saved. Your live published page is unchanged until you publish.');saved=true;
  }catch(error){message(error.message);}
  finally{busy=false;}
@@ -221,12 +221,12 @@ async function generateAiDraft(automatic){
  if(!automatic&&!confirm('Analyse the imported project photographs and create a fresh editable text and design proposal? This will replace the current draft description and photo captions.'))return false;
  busy=true;clearMessage();var button=$('generatePage');button.disabled=true;button.textContent='Analysing photographs…';
  try{
-  var result=await request('/api/studio/generate','POST',{projectId:projectId,tone:$('aiTone').value||'Classy'});
+  var result=await request('/api/studio/projects','POST',{action:'generate_ai',projectId:projectId,tone:$('aiTone').value||'Classy'});
   project.draft_content=result.draft_content||project.draft_content||{};
   $('title').value=project.draft_content.title||$('title').value;
   $('category').value=project.draft_content.category||$('category').value;
   $('description').value=project.draft_content.description||$('description').value;
-  var savedLayout=await request('/api/studio/layout?projectId='+encodeURIComponent(projectId));
+  var savedLayout=await request('/api/studio/projects?resource=layout&projectId='+encodeURIComponent(projectId));
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
   $('layoutTemplate').value=draftLayout.template||'editorial';
   await loadPhotos();
@@ -266,7 +266,7 @@ $('photoList').addEventListener('click',async function(event){
  var button=event.target.closest('[data-action]');if(!button)return;var row=button.closest('[data-file-id]');var photo=photos.find(function(p){return p.drive_file_id===row.dataset.fileId;});if(!photo)return;
  button.disabled=true;
  try{
-  if(button.dataset.action==='import'){await request('/api/studio/media','POST',{action:'import',projectId:projectId,fileId:photo.drive_file_id});await loadPhotos();}
+  if(button.dataset.action==='import'){await request('/api/studio/projects','POST',{action:'import',projectId:projectId,fileId:photo.drive_file_id});await loadPhotos();}
   if(button.dataset.action==='cover'){await updateMedia(button.dataset.mediaId,{is_cover:true});await loadPhotos();}
   if(button.dataset.action==='adjust'){openAdjustments(photo);button.disabled=false;return;}
   if(button.dataset.action==='hidden'){await updateMedia(button.dataset.mediaId,{is_hidden:button.dataset.value==='true'});await loadPhotos();}
@@ -296,7 +296,7 @@ async function init(){
   var result=await request('/api/studio/projects');project=(result.projects||[]).find(function(p){return p.id===projectId;});
   if(!project){$('status').textContent='Project not found in this dashboard.';return;}
   setValues();
-  var savedLayout=await request('/api/studio/layout?projectId='+encodeURIComponent(projectId));
+  var savedLayout=await request('/api/studio/projects?resource=layout&projectId='+encodeURIComponent(projectId));
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
   $('layoutTemplate').value=draftLayout.template||'editorial';
   await loadPhotos();
