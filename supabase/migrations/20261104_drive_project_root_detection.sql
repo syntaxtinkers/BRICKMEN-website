@@ -146,9 +146,17 @@ begin
       'finance', 'marketing', 'social media', 'website', 'branding',
       'brand', 'personal', 'new folder', 'untitled folder',
       'sample', 'test', 'tests', 'people', 'team', 'employee folders',
-      'year wise', 'by year', '2020s'
+      'year wise', 'by year', '2020s', 'google earth', 'google earth pro',
+      'googleearth', 'googleearthpro'
     ]::text[])
       and lower(trim(fp.name)) !~ '^(19|20)[0-9]{2}$'
+      -- Exclude folders whose entire name is a date, regardless of common format.
+      and lower(trim(fp.name)) !~ '^[0-9]{1,2}[-._/][0-9]{1,2}[-._/][0-9]{2,4}$'
+      and lower(trim(fp.name)) !~ '^[0-9]{4}[-._/][0-9]{1,2}[-._/][0-9]{1,2}$'
+      and lower(trim(fp.name)) !~ '^[0-9]{8}$'
+      and lower(trim(fp.name)) !~ '^[0-9]{1,2}[[:space:]_-]+(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?)[[:space:]_-]+[0-9]{2,4}$'
+      and lower(trim(fp.name)) !~ '^(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?)[[:space:]_-]+[0-9]{1,2},?[[:space:]_-]+[0-9]{2,4}$'
+      and lower(trim(fp.name)) !~ '^google[[:space:]_-]*earth([[:space:]_-].*)?$'
       and lower(trim(fp.name)) !~ '^(all|active|current|completed|ongoing|upcoming|archived|archive|old|my|our|residential|commercial|interior|architecture|architectural|design|building|hospitality|institutional|landscape|house|villa)[[:space:]_-]+(projects?|clients?|work)$'
   ),
   project_roots as (
