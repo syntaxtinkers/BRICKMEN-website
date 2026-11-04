@@ -65,7 +65,7 @@ module.exports = async function studioMedia(req, res) {
       const p = await project(projectId);
       const [items, saved] = await Promise.all([
         descendants(p.drive_folder_id),
-        db('brickmen_project_media?select=id,drive_file_id,file_name,mime_type,is_public,is_cover,is_hidden,private_storage_path,caption,alt_text,sort_order,media_category,project_id&project_id=eq.' + encodeURIComponent(projectId))
+        db('brickmen_project_media?select=id,drive_file_id,file_name,mime_type,is_public,is_cover,is_hidden,private_storage_path,caption,alt_text,sort_order,media_category,project_id,crop,image_adjustments&project_id=eq.' + encodeURIComponent(projectId))
       ]);
       const byId = new Map((Array.isArray(saved) ? saved : []).map(x => [x.drive_file_id, x]));
       const previewId = String(req.query && req.query.preview || '');
@@ -117,6 +117,20 @@ module.exports = async function studioMedia(req, res) {
       if (Object.prototype.hasOwnProperty.call(body,'media_category')) patch.media_category = String(body.media_category || '').slice(0,80);
       if (Object.prototype.hasOwnProperty.call(body,'sort_order')) patch.sort_order = Math.max(0, Math.min(10000, Number(body.sort_order)||0));
       if (Object.prototype.hasOwnProperty.call(body,'is_hidden')) patch.is_hidden = Boolean(body.is_hidden);
+      if (Object.prototype.hasOwnProperty.call(body,'image_adjustments')) {
+        const a = body.image_adjustments && typeof body.image_adjustments === 'object' ? body.image_adjustments : {};
+        patch.image_adjustments = {
+          brightness: Math.max(50, Math.min(150, Number(a.brightness) || 100)),
+          contrast: Math.max(50, Math.min(150, Number(a.contrast) || 100)),
+          saturation: Math.max(0, Math.min(200, Number(a.saturation) || 100)),
+          grayscale: Math.max(0, Math.min(100, Number(a.grayscale) || 0)),
+          blur: Math.max(0, Math.min(10, Number(a.blur) || 0))
+        };
+      }
+      if (Object.prototype.hasOwnProperty.call(body,'crop')) {
+        const crop = body.crop && typeof body.crop === 'object' ? body.crop : {};
+        patch.crop = { x: 0, y: 0, width: 100, height: 100, fit: crop.fit === 'contain' ? 'contain' : 'cover' };
+      }
       if (Object.prototype.hasOwnProperty.call(body,'is_cover')) {
         if (body.is_cover) await db('brickmen_project_media?project_id=eq.' + encodeURIComponent(projectId), 'PATCH', { is_cover: false });
         patch.is_cover = Boolean(body.is_cover);
