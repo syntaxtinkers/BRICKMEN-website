@@ -82,23 +82,32 @@ module.exports = async function studioMedia(req, res) {
     const body = parseBody(req); const projectId = String(body.projectId || '');
     if (!/^[0-9a-f-]{36}$/i.test(projectId)) return sendJson(res, 400, { error: 'A valid project ID is required.' });
     const p = await project(projectId); const action = String(body.action || '');
-    if (action === 'import') {
-      const fileId = String(body.fileId || '');
+    if (action === 'import' || action === 'import_batch') {
+      const fileIds = action === 'import_batch' && Array.isArray(body.fileIds)
+        ? body.fileIds.map(String).slice(0, 3)
+        : [String(body.fileId || '')];
+      if (!fileIds.length || fileIds.some(id => !id)) return sendJson(res, 400, { error: 'One or more photograph IDs are required.' });
       const items = await descendants(p.drive_folder_id);
-      const item = items.find(x => x.drive_file_id === fileId);
-      if (!item) return sendJson(res, 404, { error: 'That photograph is not in this project folder.' });
-      const token = await accessToken(); const source = await driveMedia(token, fileId);
-      const bytes = Buffer.from(await source.arrayBuffer());
-      const path = projectId + '/' + fileId;
-      const upload = await fetch(base() + '/storage/v1/object/brickmen-studio-private/' + path, {
-        method: 'POST', headers: { apikey: serviceKey(), Authorization: 'Bearer ' + serviceKey(), 'Content-Type': item.mime_type || source.headers.get('content-type') || 'application/octet-stream', 'x-upsert': 'true' }, body: bytes
-      });
-      if (!upload.ok) { const message = await upload.text(); throw new Error('Private image storage failed: ' + message.slice(0,300)); }
-      const rows = await db('brickmen_project_media?on_conflict=project_id,drive_file_id', 'POST', {
-        project_id: projectId, drive_file_id: fileId, file_name: item.name, mime_type: item.mime_type,
-        private_storage_path: path, source_created_time: item.created_time || null, is_public: false
-      }, 'resolution=merge-duplicates,return=representation');
-      return sendJson(res, 200, { media: Array.isArray(rows) ? rows[0] : null });
+      const token = await accessToken();
+      const imported = [];
+      for (const fileId of fileIds) {
+        const item = items.find(x => x.drive_file_id === fileId);
+        if (!item) throw new Error('A selected photograph is not inside this project folder.');
+        if (Number(item.size_bytes || 0) > 50 * 1024 * 1024) { imported.push({ fileId, skipped: 'File exceeds the 50 MB image storage limit.' }); continue; }
+        const source = await driveMedia(token, fileId);
+        const bytes = Buffer.from(await source.arrayBuffer());
+        const path = projectId + '/' + fileId;
+        const upload = await fetch(base() + '/storage/v1/object/brickmen-studio-private/' + path, {
+          method: 'POST', headers: { apikey: serviceKey(), Authorization: 'Bearer ' + serviceKey(), 'Content-Type': item.mime_type || source.headers.get('content-type') || 'application/octet-stream', 'x-upsert': 'true' }, body: bytes
+        });
+        if (!upload.ok) { const message = await upload.text(); throw new Error('Private image storage failed for "' + item.name + '": ' + message.slice(0,300)); }
+        const rows = await db('brickmen_project_media?on_conflict=project_id,drive_file_id', 'POST', {
+          project_id: projectId, drive_file_id: fileId, file_name: item.name, mime_type: item.mime_type,
+          private_storage_path: path, source_created_time: item.created_time || null, is_public: false
+        }, 'resolution=merge-duplicates,return=representation');
+        imported.push({ fileId, media: Array.isArray(rows) ? rows[0] : null });
+      }
+      return sendJson(res, 200, { imported });
     }
     if (action === 'update') {
       const mediaId = String(body.mediaId || '');
