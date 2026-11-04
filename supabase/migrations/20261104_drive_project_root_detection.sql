@@ -110,7 +110,7 @@ begin
     join stats on stats.drive_folder_id = fp.drive_file_id
     left join direct_stats on direct_stats.drive_folder_id = fp.drive_file_id
     where lower(regexp_replace(trim(fp.name), '\\s+', ' ', 'g')) <> all (array[
-      'projects', 'project', 'project folders', 'client projects', 'clients',
+      'projects', 'project', 'project folders', 'project files', 'client projects', 'client folders', 'client archive', 'clients archive', 'clients', 'residential projects', 'commercial projects', 'interior projects', 'architecture projects', 'architectural projects', 'design projects', 'hospitality projects', 'institutional projects',
       'active projects', 'current projects', 'completed projects',
       'ongoing projects', 'upcoming projects', 'archived projects',
       'old projects', 'project archive', 'project archives',
@@ -140,7 +140,68 @@ begin
       'untitled folder', 'sample', 'test', 'tests'
     ]::text[])
       and lower(trim(fp.name)) !~ '^(19|20)[0-9]{2}([[:space:]_-].*)?$'
-      and lower(trim(fp.name)) !~ '^(all[[:space:]_-]+|active[[:space:]_-]+|current[[:space:]_-]+|completed[[:space:]_-]+|ongoing[[:space:]_-]+|upcoming[[:space:]_-]+|archived?[[:space:]_-]+|old[[:space:]_-]+|my[[:space:]_-]+|our[[:space:]_-]+)?(projects?|clients?)([[:space:]_-].*)?$'
+      and lower(trim(fp.name)) !~ '^(all[[:space:]_-]+|active[[:space:]_-]+|current[[:space:]_-]+|completed[[:space:]_-]+|ongoing[[:space:]_-]+|upcoming[[:space:]_-]+|archived?[[:space:]_-]+|old[[:space:]_-]+|my[[:space:]_-]+|our[[:space:]_-]+|residential[[:space:]_-]+|commercial[[:space:]_-]+|interior[[:space:]_-]+|architecture[[:space:]_-]+|architectural[[:space:]_-]+|design[[:space:]_-]+|building[[:space:]_-]+|hospitality[[:space:]_-]+|institutional[[:space:]_-]+|landscape[[:space:]_-]+|house[[:space:]_-]+|villa[[:space:]_-]+)?(projects?|clients?)([[:space:]_-].*)?
+  ),
+  project_roots as (
+    -- Pick the first meaningful named folder on each branch. This lets a
+    -- client folder be found at any depth, while its Drawings/Photos/etc.
+    -- descendants do not appear as independent projects.
+    select candidate.*
+    from eligible_folders candidate
+    where not exists (
+      select 1
+      from eligible_folders ancestor
+      where cardinality(candidate.path_ids) > 1
+        and ancestor.drive_file_id = any(
+          candidate.path_ids[1:cardinality(candidate.path_ids) - 1]
+        )
+    )
+  )
+  insert into public.brickmen_drive_project_candidates (
+    drive_folder_id, name, parent_folder_id, folder_path,
+    earliest_file_created_at, direct_file_count, descendant_file_count,
+    is_archived, is_active, last_scanned_at, updated_at
+  )
+  select
+    project_roots.drive_file_id,
+    project_roots.name,
+    project_roots.parent_folder_id,
+    project_roots.folder_path,
+    project_roots.earliest_file_created_at,
+    project_roots.direct_file_count,
+    project_roots.descendant_file_count,
+    lower(project_roots.folder_path) ~ '(^|[ /])(archive|archives|archived|old projects)([ /]|$)',
+    true,
+    now(),
+    now()
+  from project_roots
+  on conflict (drive_folder_id) do update set
+    name = excluded.name,
+    parent_folder_id = excluded.parent_folder_id,
+    folder_path = excluded.folder_path,
+    earliest_file_created_at = excluded.earliest_file_created_at,
+    direct_file_count = excluded.direct_file_count,
+    descendant_file_count = excluded.descendant_file_count,
+    is_archived = excluded.is_archived,
+    is_active = true,
+    last_scanned_at = now(),
+    updated_at = now();
+
+  get diagnostics inserted_count = row_count;
+  return inserted_count;
+end;
+$$;
+
+revoke all on function public.brickmen_build_drive_project_candidates() from public, anon, authenticated;
+grant execute on function public.brickmen_build_drive_project_candidates() to service_role;
+
+-- Rebuild immediately from the already indexed Drive metadata; no Drive rescan needed.
+select public.brickmen_build_drive_project_candidates();
+update public.brickmen_drive_scan_state
+   set candidate_folders = (select count(*) from public.brickmen_drive_project_candidates where is_active = true),
+       updated_at = now()
+ where id = true;
+
   ),
   project_roots as (
     -- Pick the first meaningful named folder on each branch. This lets a
