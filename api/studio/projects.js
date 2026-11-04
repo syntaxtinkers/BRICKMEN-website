@@ -37,6 +37,9 @@ function parseBody(req) {
 async function listProjects() {
   const projects = await db('brickmen_projects?select=*&order=created_at.desc');
   const media = await db('brickmen_project_media?select=project_id,is_public,is_hidden,public_storage_path');
+  const candidates = await db('brickmen_drive_project_candidates?select=drive_folder_id,folder_path,name');
+  const candidateByFolder = {};
+  (Array.isArray(candidates) ? candidates : []).forEach((item) => { candidateByFolder[item.drive_folder_id] = item; });
   const counts = {};
   (Array.isArray(media) ? media : []).forEach((item) => {
     const entry = counts[item.project_id] || { total: 0, public: 0 };
@@ -46,6 +49,7 @@ async function listProjects() {
   });
   return (Array.isArray(projects) ? projects : []).map((project) => ({
     ...project,
+    folder_path: (candidateByFolder[project.drive_folder_id] || {}).folder_path || '',
     media_count: (counts[project.id] || {}).total || 0,
     public_media_count: (counts[project.id] || {}).public || 0
   }));
