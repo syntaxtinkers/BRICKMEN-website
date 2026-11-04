@@ -120,10 +120,16 @@ module.exports = async function studioProjects(req, res) {
       }
       if (patch.title !== undefined && !patch.title) return sendJson(res, 400, { error: 'Project title cannot be empty.' });
       if (!Object.keys(patch).length) return sendJson(res, 400, { error: 'There are no changes to save.' });
-      patch.updated_at = new Date().toISOString();
-      const rows = await db('brickmen_projects?id=eq.' + encodeURIComponent(projectId), 'PATCH', patch, 'return=representation');
+      const currentRows = await db('brickmen_projects?select=id,draft_content&id=eq.' + encodeURIComponent(projectId) + '&limit=1');
+      if (!Array.isArray(currentRows) || !currentRows.length) return sendJson(res, 404, { error: 'Project not found.' });
+      const draftContent = Object.assign({}, currentRows[0].draft_content || {}, patch);
+      delete draftContent.updated_at;
+      const rows = await db('brickmen_projects?id=eq.' + encodeURIComponent(projectId), 'PATCH', {
+        draft_content: draftContent,
+        updated_at: new Date().toISOString()
+      }, 'return=representation');
       if (!Array.isArray(rows) || !rows.length) return sendJson(res, 404, { error: 'Project not found.' });
-      return sendJson(res, 200, { project: rows[0] });
+      return sendJson(res, 200, { project: rows[0], savedAsDraft: true });
     }
 
     if (action === 'publish') {
@@ -154,8 +160,23 @@ module.exports = async function studioProjects(req, res) {
         prepared++;
       }
       if (!prepared) return sendJson(res, 409, { error: 'Import at least one photograph to this project before publishing.' });
+      const projectRows = await db('brickmen_projects?select=draft_content&id=eq.' + encodeURIComponent(projectId) + '&limit=1');
+      const draftContent = projectRows && projectRows[0] && projectRows[0].draft_content && typeof projectRows[0].draft_content === 'object' ? projectRows[0].draft_content : {};
+      const livePatch = {};
+      ['title','location','category','project_year','start_date','description','visibility'].forEach((field) => {
+        if (Object.prototype.hasOwnProperty.call(draftContent, field)) livePatch[field] = draftContent[field];
+      });
+      const layoutRows = await db('brickmen_project_layouts?select=draft_layout&project_id=eq.' + encodeURIComponent(projectId) + '&limit=1');
+      if (Array.isArray(layoutRows) && layoutRows.length) {
+        await db('brickmen_project_layouts?project_id=eq.' + encodeURIComponent(projectId), 'PATCH', {
+          published_layout: layoutRows[0].draft_layout || { version: 1, elements: [] },
+          updated_at: new Date().toISOString()
+        });
+      }
       const now = new Date().toISOString();
       const rows = await db('brickmen_projects?id=eq.' + encodeURIComponent(projectId), 'PATCH', {
+        ...livePatch,
+        draft_content: null,
         review_status: 'approved',
         approved_by: user.id,
         approved_at: now,
