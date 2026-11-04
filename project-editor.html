@@ -46,6 +46,14 @@
  </div>
  <div class="hint" id="photoHint">All images in the project folder and nested folders can be included. Preparing them copies images to private Studio storage; it does not change Drive.</div>
  <div class="photo-list" id="photoList"></div>
+ <section id="adjustmentsPanel" style="display:none;margin-top:15px;padding:14px;border:1px solid var(--line);background:#fafaf8">
+  <div class="section-title" style="margin:0 0 10px"><strong>Image adjustments</strong><span id="adjustName"></span></div>
+  <div class="field"><label for="brightness">Brightness <span id="brightnessValue">100%</span></label><input id="brightness" type="range" min="50" max="150" value="100"></div>
+  <div class="field"><label for="contrast">Contrast <span id="contrastValue">100%</span></label><input id="contrast" type="range" min="50" max="150" value="100"></div>
+  <div class="field"><label for="saturation">Saturation <span id="saturationValue">100%</span></label><input id="saturation" type="range" min="0" max="200" value="100"></div>
+  <div class="field"><label for="cropFit">Image fit</label><select id="cropFit"><option value="cover">Cover / crop to fill</option><option value="contain">Contain / show full image</option></select></div>
+  <button class="btn light" id="saveAdjustments" type="button">Apply image adjustments</button>
+ </section>
  <div class="side-foot">
   <button class="btn light" id="saveBottom" type="button">Save draft</button>
   <button class="btn orange" id="publishBottom" type="button">Publish</button>
@@ -64,7 +72,7 @@
 'use strict';
 var $=function(id){return document.getElementById(id);};
 var query=new URLSearchParams(location.search),projectId=query.get('id')||'';
-var session=null,project=null,photos=[],objects={},draftLayout={version:1,template:'editorial',elements:[]},busy=false;
+var session=null,project=null,photos=[],objects={},selectedPhotoId=null,draftLayout={version:1,template:'editorial',elements:[]},busy=false;
 var sessionKey='brickmen_studio_session_v1';
 try{session=JSON.parse(sessionStorage.getItem(sessionKey)||'null');}catch(_){}
 function message(text){$('message').textContent=text;$('message').classList.add('show');}
@@ -83,7 +91,8 @@ function setValues(){
  $('title').value=dataValue('title')||'';$('location').value=dataValue('location')||'';$('category').value=dataValue('category')||'';
  $('year').value=dataValue('project_year')||'';$('startDate').value=String(dataValue('start_date')||'').slice(0,10);$('description').value=dataValue('description')||'';
  $('projectHeading').textContent=$('title').value||'Project editor';
- $('status').textContent=(project.is_published?'Published project':'Private draft')+(project.is_archived?' · Archived source folder':'');
+ $('status').textContent=(project.is_published?'Published project · edits are private until republished':'Private draft')+(project.is_archived?' · Archived source folder':'');
+ if(!$('description').value.trim())starterDescription();
 }
 function currentContent(){
  return {title:$('title').value.trim(),location:$('location').value.trim(),category:$('category').value.trim(),project_year:$('year').value?Number($('year').value):null,start_date:$('startDate').value||null,description:$('description').value.trim(),visibility:visibility()};
@@ -116,6 +125,7 @@ async function renderPhotos(){
   content.appendChild(name);content.appendChild(meta);
   if(photo.selected&&photo.media){
    var cover=document.createElement('button');cover.textContent=photo.media.is_cover?'Cover':'Set cover';cover.className=photo.media.is_cover?'active':'';cover.dataset.action='cover';cover.dataset.mediaId=photo.media.id;controls.appendChild(cover);
+   var adjust=document.createElement('button');adjust.textContent='Adjust';adjust.dataset.action='adjust';adjust.dataset.mediaId=photo.media.id;controls.appendChild(adjust);
    var hidden=document.createElement('button');hidden.textContent=photo.media.is_hidden?'Show':'Hide';hidden.className=photo.media.is_hidden?'active':'';hidden.dataset.action='hidden';hidden.dataset.mediaId=photo.media.id;hidden.dataset.value=photo.media.is_hidden?'false':'true';controls.appendChild(hidden);
    var sort=orderedPhotos(),index=sort.findIndex(function(x){return x.drive_file_id===photo.drive_file_id;});
    var up=document.createElement('button');up.textContent='↑';up.dataset.action='move';up.dataset.direction='-1';up.disabled=index<=0;controls.appendChild(up);
@@ -132,6 +142,20 @@ async function loadPhotos(){
 }
 async function updateMedia(mediaId,patch){
  return request('/api/studio/media','POST',Object.assign({action:'update',projectId:projectId,mediaId:mediaId},patch));
+}
+function openAdjustments(photo){
+ if(!photo||!photo.media)return;
+ selectedPhotoId=photo.drive_file_id;var a=photo.media.image_adjustments||{},crop=photo.media.crop||{};
+ $('adjustName').textContent=photo.name;$('adjustmentsPanel').style.display='block';
+ [['brightness',a.brightness||100],['contrast',a.contrast||100],['saturation',a.saturation||100]].forEach(function(pair){$(pair[0]).value=pair[1];$(pair[0]+'Value').textContent=pair[1]+'%';});
+ $('cropFit').value=crop.fit==='contain'?'contain':'cover';
+}
+async function applyAdjustments(){
+ var photo=photos.find(function(p){return p.drive_file_id===selectedPhotoId;});if(!photo||!photo.media)return;
+ try{
+  await updateMedia(photo.media.id,{image_adjustments:{brightness:Number($('brightness').value),contrast:Number($('contrast').value),saturation:Number($('saturation').value)},crop:{fit:$('cropFit').value}});
+  await loadPhotos();message('Image adjustments saved to this draft.');
+ }catch(error){message(error.message);}
 }
 async function preparePhotos(){
  if(busy)return;busy=true;clearMessage();var button=$('prepareAll');button.disabled=true;button.textContent='Preparing photos…';
@@ -151,19 +175,24 @@ async function preparePhotos(){
  }catch(error){message(error.message+' You can run Prepare all photos again to continue.');}
  finally{busy=false;button.disabled=false;button.textContent='Prepare all photos';}
 }
+function imageStyle(photo){
+ var a=photo&&photo.media&&photo.media.image_adjustments||{},crop=photo&&photo.media&&photo.media.crop||{};
+ var b=Math.max(50,Math.min(150,Number(a.brightness)||100)),c=Math.max(50,Math.min(150,Number(a.contrast)||100)),s=Math.max(0,Math.min(200,Number(a.saturation)||100));
+ return 'filter:brightness('+b+'%) contrast('+c+'%) saturate('+s+'%);object-fit:'+(crop.fit==='contain'?'contain':'cover')+';';
+}
 function renderPreview(){
  if(!project)return;
  var content=currentContent(),visible=orderedPhotos(),cover=visible.find(function(p){return p.media&&p.media.is_cover;})||visible[0];
- var hero='<div class="preview-hero"><div class="preview-hero-image">'+(cover&&blobFor(cover.drive_file_id)?'<img src="'+blobFor(cover.drive_file_id)+'" alt="">':'')+'</div><div class="preview-title"><div class="eyebrow">BRICKMEN / PROJECT</div><h1>'+escapeHtml(content.title||'Untitled project')+'</h1><p>'+escapeHtml([content.location,content.category,content.project_year].filter(Boolean).join(' · '))+'</p></div></div>';
+ var hero='<div class="preview-hero"><div class="preview-hero-image">'+(cover&&blobFor(cover.drive_file_id)?'<img style="'+imageStyle(cover)+'" src="'+blobFor(cover.drive_file_id)+'" alt="">':'')+'</div><div class="preview-title"><div class="eyebrow">BRICKMEN / PROJECT</div><h1>'+escapeHtml(content.title||'Untitled project')+'</h1><p>'+escapeHtml([content.location,content.category,content.project_year].filter(Boolean).join(' · '))+'</p></div></div>';
  var description=content.description||'Your project description will appear here after you add it in the editor.';
  var intro='<div class="preview-intro"><div class="eyebrow">PROJECT NOTE</div><p>'+escapeHtml(description)+'</p></div>';
- var gallery='<div class="preview-gallery">'+visible.map(function(p){return '<figure>'+(blobFor(p.drive_file_id)?'<img src="'+blobFor(p.drive_file_id)+'" alt="'+escapeHtml(p.name)+'">':'<div style="aspect-ratio:16/10;background:#eee"></div>')+'<figcaption>'+escapeHtml((p.media&&p.media.caption)||p.name)+'</figcaption></figure>';}).join('')+'</div>';
+ var gallery='<div class="preview-gallery">'+visible.map(function(p){return '<figure>'+(blobFor(p.drive_file_id)?'<img style="'+imageStyle(p)+'" src="'+blobFor(p.drive_file_id)+'" alt="'+escapeHtml(p.name)+'">':'<div style="aspect-ratio:16/10;background:#eee"></div>')+'<figcaption>'+escapeHtml((p.media&&p.media.caption)||p.name)+'</figcaption></figure>';}).join('')+'</div>';
  $('preview').innerHTML=hero+'<div class="preview-body">'+intro+gallery+'</div><div class="preview-end">BRICKMEN · DESIGN THAT LOOKS AHEAD</div>';
  $('projectHeading').textContent=content.title||'Project editor';
 }
 function escapeHtml(value){return String(value||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
 async function saveDraft(){
- if(busy)return;busy=true;clearMessage();
+ if(busy)return false;busy=true;clearMessage();var saved=false;
  try{
   var content=currentContent();
   await request('/api/studio/projects','POST',Object.assign({action:'save',projectId:projectId},content));
@@ -174,16 +203,17 @@ async function saveDraft(){
    {type:'gallery',mediaIds:visible.map(function(p){return p.drive_file_id;})}
   ]};
   await request('/api/studio/layout','POST',{projectId:projectId,canvas:{width:240,columns:48,unit:'grid'},draft_layout:draftLayout});
-  message('Draft saved. Your live published page is unchanged until you publish.');
+  message('Draft saved. Your live published page is unchanged until you publish.');saved=true;
  }catch(error){message(error.message);}
  finally{busy=false;}
+ return saved;
 }
 function coverId(){var p=orderedPhotos().find(function(x){return x.media&&x.media.is_cover;})||orderedPhotos()[0];return p?p.drive_file_id:null;}
 async function publish(){
  if(busy)return;
  if(!confirm('Publish this project and all imported, visible photographs to the public Brickmen website? Hidden photographs will remain private.'))return;
- await saveDraft();
- if(busy)return;
+ var saved=await saveDraft();
+ if(!saved)return;
  busy=true;clearMessage();var buttons=[$('publishTop'),$('publishBottom')];buttons.forEach(function(b){b.disabled=true;b.textContent='Publishing…';});
  try{
   await request('/api/studio/projects','POST',{action:'publish',projectId:projectId});
@@ -211,6 +241,7 @@ $('photoList').addEventListener('click',async function(event){
  try{
   if(button.dataset.action==='import'){await request('/api/studio/media','POST',{action:'import',projectId:projectId,fileId:photo.drive_file_id});await loadPhotos();}
   if(button.dataset.action==='cover'){await updateMedia(button.dataset.mediaId,{is_cover:true});await loadPhotos();}
+  if(button.dataset.action==='adjust'){openAdjustments(photo);button.disabled=false;return;}
   if(button.dataset.action==='hidden'){await updateMedia(button.dataset.mediaId,{is_hidden:button.dataset.value==='true'});await loadPhotos();}
   if(button.dataset.action==='move'){
    var list=orderedPhotos(),index=list.findIndex(function(p){return p.drive_file_id===photo.drive_file_id;}),next=index+Number(button.dataset.direction);
@@ -222,6 +253,8 @@ $('photoList').addEventListener('click',async function(event){
 });
 ['title','location','category','year','startDate','description'].forEach(function(id){$(id).addEventListener('input',renderPreview);});
 $('starterCopy').addEventListener('click',starterDescription);
+['brightness','contrast','saturation'].forEach(function(id){$(id).addEventListener('input',function(){$(id+'Value').textContent=this.value+'%';});});
+$('saveAdjustments').addEventListener('click',applyAdjustments);
 $('prepareAll').addEventListener('click',preparePhotos);$('refreshPhotos').addEventListener('click',loadPhotos);
 ['saveTop','saveBottom'].forEach(function(id){$(id).addEventListener('click',saveDraft);});
 ['publishTop','publishBottom'].forEach(function(id){$(id).addEventListener('click',publish);});
