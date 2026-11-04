@@ -119,7 +119,7 @@ async function renderPhotos(){
  photos.forEach(function(photo){
   var row=document.createElement('article');row.className='photo-row';row.dataset.fileId=photo.drive_file_id;
   var img=document.createElement('img');img.alt=photo.name||'Project image';img.loading='lazy';img.src='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="76" height="65"%3E%3Crect width="100%25" height="100%25" fill="%23ededE8"/%3E%3C/svg%3E';
-  imageFor(photo).then(function(url){img.src=url;}).catch(function(){});
+  imageFor(photo).then(function(url){img.src=url;renderPreview();}).catch(function(){});
   var content=document.createElement('div'),name=document.createElement('div'),meta=document.createElement('div'),controls=document.createElement('div');
   name.className='photo-name';name.textContent=photo.name;meta.className='photo-meta';meta.textContent=photo.selected?'Imported · private': 'Drive image · not yet imported';controls.className='photo-controls';
   content.appendChild(name);content.appendChild(meta);
