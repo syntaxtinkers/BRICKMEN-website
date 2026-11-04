@@ -109,7 +109,7 @@ begin
     from folder_paths fp
     join stats on stats.drive_folder_id = fp.drive_file_id
     left join direct_stats on direct_stats.drive_folder_id = fp.drive_file_id
-    where lower(regexp_replace(trim(fp.name), '\\s+', ' ', 'g')) <> all (array[
+    where lower(regexp_replace(trim(fp.name), '[[:space:]]+', ' ', 'g')) <> all (array[
       'projects', 'project', 'project folders', 'project files', 'client projects', 'client folders', 'client archive', 'clients archive', 'clients', 'residential projects', 'commercial projects', 'interior projects', 'architecture projects', 'architectural projects', 'design projects', 'hospitality projects', 'institutional projects',
       'active projects', 'current projects', 'completed projects',
       'ongoing projects', 'upcoming projects', 'archived projects',
