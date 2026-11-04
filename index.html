@@ -1000,7 +1000,25 @@ renderAll();
       ${part('team',`<section class="pdf-page">${pageTop('Team / The wider circle')}<div class="eyebrow"><span class="orange-mark"></span>The people behind the work</div><h2 class="page-title">The wider circle<span class="orange">.</span></h2><p class="page-lead">An evolving group of designers, makers and collaborators who bring their own ways of seeing to the practice.</p><div class="people-grid">${team.map(p=>`<article class="person">${p.image?`<img src="${escAttr(p.image)}" alt="${escapeHtml(p.name)}">`:`<div style="width:44mm;height:54mm;background:#eee;display:grid;place-items:center;font-size:30px;color:#d85a32">${escapeHtml((p.name||'B').trim().charAt(0).toUpperCase())}</div>`}<div><h3>${escapeHtml(p.name)}</h3><div class="role">${escapeHtml(p.role)}</div><p>${escapeHtml(p.bio||'')}</p></div></article>`).join('')||'<p class="page-lead">The team grows with the work. New profiles will appear here as the practice expands.</p>'}</div>${pageFooter}</section>`)}
       ${part('projects',projectHtml)}
       ${part('contact',`<section class="pdf-page">${pageTop('Start a conversation')}<div class="eyebrow"><span class="orange-mark"></span>Contact</div><h2 class="page-title">Work with Brickmen<span class="orange">.</span></h2><p class="page-lead">${escapeHtml(pages.contact.intro||'')}</p><div class="contact-large">${escapeHtml(pages.contact.email||'hello@brickmen.in')}</div><div class="contact-location">${escapeHtml(pages.contact.location||'Bengaluru / India')}</div>${pages.contact.phone?`<div class="contact-location" style="margin-top:9px">${escapeHtml(pages.contact.phone)}</div>`:''}${pageFooter}</section>`)}
-      </main><script>document.getElementById('printPdfNow').addEventListener('click',async()=>{const imgs=[...document.images];await Promise.all(imgs.map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve()));window.print()});<\/script></body></html>`;
+      </main><script>document.getElementById('printPdfNow').addEventListener('click',async()=>{const imgs=[...document.images];await Promise.all(imgs.map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve()));window.print()});<\/script>
+<style id="brickmen-studio-menu-style">.site-header .menu-btn{display:inline-flex!important;align-items:center;gap:10px;margin-left:clamp(14px,2vw,28px)}</style>
+<script id="brickmen-studio-entry-link">
+(function(){
+  var menu=document.querySelector('.menu-overlay-links');
+  if(menu&&!menu.querySelector('a[href="/studio.html"]')){
+    var link=document.createElement('a');
+    link.href='/studio.html';
+    link.innerHTML='<span>07</span>Studio Login<i>↗</i>';
+    menu.appendChild(link);
+  }
+  var demo=Array.prototype.find.call(document.querySelectorAll('#publicSite button'),function(button){
+    return /open dashboard demo/i.test(button.textContent||'');
+  });
+  if(demo&&demo.parentElement)demo.parentElement.remove();
+})();
+</script>
+
+</body></html>`;
     const win=window.open('','_blank');if(!win){alert('Please allow pop-ups for this local prototype, then try again.');return}win.document.open();win.document.write(html);win.document.close();
   });
 

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#171915">
+<title>Studio Login — Brickmen</title>
+<style>
+:root{--orange:#e45b2b;--ink:#171915;--muted:#777970;--line:#dedfd9;--paper:#f5f5f1;--white:#fff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--paper);color:var(--ink);font-family:Inter,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:grid;grid-template-columns:minmax(260px,1fr) minmax(340px,500px);max-width:1440px;margin:auto;padding:clamp(24px,5vw,72px);gap:clamp(40px,8vw,120px);align-items:center}
+.intro{max-width:570px}.brand{font-size:32px;font-weight:750;letter-spacing:-.02em}.brand span{color:var(--orange)}.eyebrow{margin-top:76px;color:var(--muted);font-size:11px;letter-spacing:.17em;text-transform:uppercase;font-weight:700}.intro h1{font-size:clamp(42px,6.5vw,82px);line-height:.98;letter-spacing:-.065em;font-weight:520;margin:22px 0}.intro h1 span{color:var(--orange)}.intro p{max-width:470px;color:#666960;font-size:15px;line-height:1.8}.back{display:inline-block;margin-top:38px;font-size:12px;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid #bfc1b8;padding-bottom:7px}
+.card{background:var(--white);border:1px solid var(--line);padding:clamp(24px,4vw,42px);box-shadow:0 18px 60px rgba(25,27,22,.055)}.card h2{font-size:25px;letter-spacing:-.04em;margin:0 0 8px;font-weight:600}.sub{color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 28px}.field{display:grid;gap:8px;margin:17px 0}.field label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#62665c;font-weight:700}.field input{width:100%;border:1px solid #d9dbd3;background:#fff;padding:14px 13px;font-size:14px;outline:none;border-radius:0}.field input:focus{border-color:var(--orange);box-shadow:0 0 0 2px rgba(228,91,43,.1)}
+.btn{width:100%;border:1px solid var(--ink);background:var(--ink);color:#fff;padding:14px 18px;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;margin-top:9px}.btn.secondary{background:#fff;color:var(--ink)}.btn:disabled{opacity:.55;cursor:wait}.msg{display:none;margin:18px 0 0;padding:13px 14px;border-left:3px solid var(--orange);background:#fbf5f1;color:#5d4135;font-size:13px;line-height:1.6}.msg.show{display:block}.muted-note{margin:24px 0 0;color:#888b82;font-size:11px;line-height:1.65}.divider{height:1px;background:var(--line);margin:28px 0}.status{border:1px solid var(--line);padding:16px;margin:18px 0 12px}.status strong{display:block;font-size:13px;margin-bottom:5px}.status span{font-size:12px;color:var(--muted);line-height:1.6;word-break:break-word}.hidden{display:none!important}.footer{position:fixed;right:26px;bottom:20px;color:#999b93;font-size:10px;letter-spacing:.09em;text-transform:uppercase}
+@media(max-width:800px){.shell{grid-template-columns:1fr;align-content:start;gap:34px;padding:28px 20px 60px}.eyebrow{margin-top:36px}.intro h1{font-size:52px}.back{margin-top:15px}.footer{position:static;text-align:center;padding:12px}}
+</style>
+</head>
+<body>
+<main class="shell">
+<section class="intro">
+<a class="brand" href="/">Brickmen<span>.</span></a>
+<div class="eyebrow">Private workspace / Studio access</div>
+<h1>Good work<br>begins <span>within.</span></h1>
+<p>The private Brickmen Studio is reserved for authorised administrators. Sign in to manage the practice and connect its project archive.</p>
+<a class="back" href="/">← Return to the public website</a>
+</section>
+<section class="card">
+<div id="loginPanel">
+<h2>Studio login</h2><p class="sub">Use the administrator account created in your Brickmen Supabase project.</p>
+<form id="loginForm" autocomplete="on">
+<div class="field"><label for="email">Email address</label><input id="email" name="username" type="email" autocomplete="username" value="meticulousdesigncollaberative@gmail.com" required></div>
+<div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+<button class="btn" id="loginButton" type="submit">Sign in to Studio</button>
+</form>
+<div class="msg" id="loginMessage" role="status"></div>
+<p class="muted-note">Access is limited to the administrator email configured for this website. There is no public sign-up.</p>
+</div>
+<div id="studioPanel" class="hidden">
+<h2>Studio connections</h2><p class="sub">Signed in as <strong id="signedInEmail"></strong></p>
+<div class="status"><strong id="driveStatusTitle">Google Drive</strong><span id="driveStatusDetail">Checking connection…</span></div>
+<button class="btn" id="connectDriveButton" type="button">Connect Google Drive</button>
+<button class="btn secondary hidden" id="disconnectDriveButton" type="button">Disconnect Google Drive</button>
+<div class="msg" id="studioMessage" role="status"></div>
+<div class="divider"></div>
+<p class="muted-note">The Drive connection is read-only. This page will not move, rename, edit or delete files in Google Drive.</p>
+<button class="btn secondary" id="logoutButton" type="button">Sign out</button>
+</div>
+</section>
+</main>
+<div class="footer">Brickmen / Bengaluru, India</div>
+<script>
+(function () {
+'use strict';
+var $=function(id){return document.getElementById(id);};
+var sessionKey='brickmen_studio_session_v1',config=null,session=null;
+function showMessage(id,message){var el=$(id);el.textContent=message;el.classList.add('show');}
+function clearMessage(id){var el=$(id);el.textContent='';el.classList.remove('show');}
+function setBusy(button,busy,label){button.disabled=busy;if(label)button.textContent=label;}
+function saveSession(value){session=value;sessionStorage.setItem(sessionKey,JSON.stringify(value));}
+function clearSession(){session=null;sessionStorage.removeItem(sessionKey);}
+async function authRequest(path,body){
+ var response=await fetch(config.supabaseUrl+'/auth/v1/'+path,{method:'POST',headers:{apikey:config.publishableKey,'Content-Type':'application/json'},body:JSON.stringify(body)});
+ var data={};try{data=await response.json();}catch(_){}
+ if(!response.ok)throw new Error(data.msg||data.message||data.error_description||data.error||'Authentication failed.');
+ return data;
+}
+async function apiRequest(path,method){
+ var response=await fetch(path,{method:method||'GET',headers:{Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'}});
+ var data={};try{data=await response.json();}catch(_){}
+ if(!response.ok)throw new Error(data.error||'The request could not be completed.');
+ return data;
+}
+async function ensureFreshSession(){
+ var raw=sessionStorage.getItem(sessionKey);if(!raw)return false;
+ try{session=JSON.parse(raw);}catch(_){clearSession();return false;}
+ if(!session||!session.access_token){clearSession();return false;}
+ var expiresAt=Number(session.expires_at||0);
+ if(expiresAt&&expiresAt*1000<Date.now()+60000&&session.refresh_token){
+  try{var refreshed=await authRequest('token?grant_type=refresh_token',{refresh_token:session.refresh_token});refreshed.expires_at=Math.floor(Date.now()/1000)+Number(refreshed.expires_in||3600);saveSession(refreshed);}
+  catch(_){clearSession();return false;}
+ }
+ try{await apiRequest('/api/studio/me');return true;}catch(_){clearSession();return false;}
+}
+function showStudio(email){$('loginPanel').classList.add('hidden');$('studioPanel').classList.remove('hidden');$('signedInEmail').textContent=email||'';}
+function showLogin(){$('studioPanel').classList.add('hidden');$('loginPanel').classList.remove('hidden');}
+async function refreshDriveStatus(){
+ clearMessage('studioMessage');
+ try{
+  var status=await apiRequest('/api/google/status');
+  if(status.connected){
+   $('driveStatusTitle').textContent='Google Drive connected';
+   $('driveStatusDetail').textContent=(status.email||'Google account')+' · Read-only access is authorised.';
+   $('connectDriveButton').textContent='Reconnect Google Drive';
+   $('disconnectDriveButton').classList.remove('hidden');
+  }else{
+   $('driveStatusTitle').textContent='Google Drive not connected';
+   $('driveStatusDetail').textContent='Connect the Brickmen Google account to begin the project archive scan setup.';
+   $('connectDriveButton').textContent='Connect Google Drive';
+   $('disconnectDriveButton').classList.add('hidden');
+  }
+ }catch(err){$('driveStatusTitle').textContent='Google Drive setup pending';$('driveStatusDetail').textContent=err.message;}
+}
+$('loginForm').addEventListener('submit',async function(event){
+ event.preventDefault();clearMessage('loginMessage');var button=$('loginButton');setBusy(button,true,'Signing in…');
+ try{
+  var result=await authRequest('token?grant_type=password',{email:$('email').value.trim(),password:$('password').value});
+  result.expires_at=Math.floor(Date.now()/1000)+Number(result.expires_in||3600);saveSession(result);
+  var verified=await apiRequest('/api/studio/me');showStudio(verified.email||result.user.email);await refreshDriveStatus();
+ }catch(err){clearSession();showMessage('loginMessage',err.message);}
+ finally{setBusy(button,false,'Sign in to Studio');}
+});
+$('connectDriveButton').addEventListener('click',async function(){
+ clearMessage('studioMessage');var button=$('connectDriveButton');setBusy(button,true,'Opening Google…');
+ try{var result=await apiRequest('/api/google/start','POST');if(!result.authorizationUrl)throw new Error('Google authorisation URL was not returned.');window.location.assign(result.authorizationUrl);}
+ catch(err){showMessage('studioMessage',err.message);setBusy(button,false,'Connect Google Drive');}
+});
+$('disconnectDriveButton').addEventListener('click',async function(){
+ if(!window.confirm('Disconnect the Google Drive account from Brickmen Studio? This will not delete or change any Drive files.'))return;
+ try{await apiRequest('/api/google/disconnect','POST');await refreshDriveStatus();showMessage('studioMessage','Google Drive has been disconnected.');}
+ catch(err){showMessage('studioMessage',err.message);}
+});
+$('logoutButton').addEventListener('click',function(){clearSession();showLogin();});
+async function init(){
+ try{
+  var configResponse=await fetch('/api/config',{cache:'no-store'});config=await configResponse.json();
+  if(!configResponse.ok)throw new Error(config.error||'Website configuration is not ready.');
+  var query=new URLSearchParams(window.location.search),driveResult=query.get('drive'),driveMessage='';
+  if(driveResult){
+   var messages={connected:'Google Drive is now connected successfully.',state_error:'The Google security check expired or did not match. Please connect again.',token_error:'Google could not complete authorisation. Please try again.',scope_error:'Google did not grant the required read-only Drive permission.',refresh_token_missing:'Google did not return an offline refresh token. Reconnect and approve the requested access.',server_config_error:'The server-side Google OAuth settings are incomplete.',save_error:'Google authorised access, but Brickmen could not securely save the connection.',error:'Google authorisation was cancelled or denied.'};
+   driveMessage=messages[driveResult]||'Google Drive could not be connected.';history.replaceState({},'',window.location.pathname);
+  }
+  if(await ensureFreshSession()){
+   var me=await apiRequest('/api/studio/me');showStudio(me.email);await refreshDriveStatus();
+   if(driveMessage)showMessage('studioMessage',driveMessage);
+  }else{showLogin();if(driveMessage)showMessage('loginMessage',driveMessage);}
+ }catch(err){showLogin();showMessage('loginMessage',err.message);}
+}
+init();
+})();
+</script>
+</body>
+</html>
