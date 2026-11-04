@@ -357,7 +357,7 @@ $('portfolioProjects')?.addEventListener('click',async function(event){
   if(action==='reject'&&!window.confirm('Reject this project from the portfolio review queue? The Drive folder and files will remain untouched.'))return;
   await apiRequest('/api/studio/projects','POST',payload);
   await refreshPortfolioProjects();
-  showMessage('portfolioMessage',action==='save'?'Project draft saved.':action==='publish'?'Project published.':action==='unpublish'?'Project unpublished.':'Project rejected. Drive files remain untouched.');
+  showMessage('portfolioMessage',action==='save'?'Project draft saved.':action==='publish'?'Project published.':action==='unpublish'?'Project unpublished.':action==='delete'?'Project deleted. Original Drive files remain untouched.':'Project rejected. Drive files remain untouched.');
  }catch(err){showMessage('portfolioMessage',err.message);}
  finally{button.disabled=false;}
 });
