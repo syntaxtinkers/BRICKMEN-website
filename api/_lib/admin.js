@@ -23,11 +23,11 @@ function methodNotAllowed(res, allowed) {
   sendJson(res, 405, { error: 'Method not allowed.' });
 }
 async function requireAdmin(req, res) {
-  const url = (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
   const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || '';
   const serviceKey = process.env.SUPABASE_SECRET_KEY || '';
   const authHeader = req.headers.authorization || '';
-  const match = authHeader.match(/^Bearer\\s+(.+)$/i);
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!url || !publishableKey || !serviceKey) {
     sendJson(res, 503, { error: 'Supabase server configuration is incomplete.' });
     return null;
@@ -60,7 +60,7 @@ async function requireAdmin(req, res) {
   }
 
   const bootstrapEmails = String(process.env.BRICKMEN_ADMIN_EMAILS || '')
-    .split(/[;,\\n]/).map((item) => item.trim().toLowerCase()).filter(Boolean);
+    .split(/[;,\n]/).map((item) => item.trim().toLowerCase()).filter(Boolean);
   let adminRecord = null;
   try {
     const lookup = await fetch(
