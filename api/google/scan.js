@@ -28,11 +28,23 @@ async function getFreshAccessToken(connection) {
   return data.access_token;
 }
 
+async function getMyDriveRootId(accessToken) {
+  const response = await fetch('https://www.googleapis.com/drive/v3/files/root?fields=id', {
+    method: 'GET',
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.id) {
+    const reason = data && data.error && data.error.message;
+    throw new Error(reason || 'Google Drive could not identify the My Drive root folder.');
+  }
+  return String(data.id);
+}
+
 async function listDrivePage(accessToken, pageToken) {
   const url = new URL('https://www.googleapis.com/drive/v3/files');
-  url.searchParams.set('corpora', 'allDrives');
-  url.searchParams.set('includeItemsFromAllDrives', 'true');
-  url.searchParams.set('supportsAllDrives', 'true');
+  // Exclude Shared Drives. Candidate detection is further anchored to My Drive root.
+  url.searchParams.set('corpora', 'user');
   url.searchParams.set('spaces', 'drive');
   url.searchParams.set('q', 'trashed = false');
   url.searchParams.set('pageSize', '1000');
@@ -69,9 +81,12 @@ module.exports = async function googleScan(req, res) {
     if (action === 'start') {
       const connection = await getDriveConnection();
       if (!connection) return sendJson(res, 409, { error: 'Connect Google Drive before starting an archive scan.' });
+      const accessToken = await getFreshAccessToken(connection);
+      const myDriveRootId = await getMyDriveRootId(accessToken);
       const now = new Date().toISOString();
       await saveScanState({
         status: 'scanning',
+        my_drive_root_id: myDriveRootId,
         page_token: null,
         scanned_files: 0,
         scanned_folders: 0,
