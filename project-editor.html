@@ -394,7 +394,7 @@ $('preview').addEventListener('dblclick',function(event){
 $('preview').addEventListener('focusout',function(event){
  var paragraph=event.target.closest('[data-text-edit]');if(!paragraph||paragraph.contentEditable!=='true')return;
  var index=Number(paragraph.dataset.textEdit);if(Number.isInteger(index)&&draftLayout.elements[index])draftLayout.elements[index].body=paragraph.innerText||paragraph.textContent||'';
- paragraph.contentEditable='false';renderPreview();
+ paragraph.contentEditable='false';
 });
 window.addEventListener('pointermove',onLayoutPointerMove);
 window.addEventListener('pointerup',onLayoutPointerUp);
