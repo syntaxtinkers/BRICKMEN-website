@@ -40,6 +40,7 @@
  <div class="field"><label for="description">Project story / description</label><textarea id="description" maxlength="12000" placeholder="Write the approved project narrative here."></textarea></div>
  <div class="field"><label for="aiTone">AI writing tone</label><select id="aiTone"><option>Classy</option><option>Editorial</option><option>Minimal</option><option>Technical</option><option>Poetic</option></select></div>
  <div class="photo-tools"><button class="btn" id="generatePage" type="button">Generate page with AI</button><button class="btn light" id="starterCopy" type="button">Create a basic starter</button></div>
+ <div class="field"><label for="layoutTemplate">Page layout</label><select id="layoutTemplate"><option value="editorial">Editorial / Architecture journal</option><option value="minimal">Minimal / Quiet gallery</option><option value="gallery">Gallery / Image-led</option></select></div>
  <div class="hint">AI analyses imported project photographs and metadata, then proposes editable text, captions and a page direction. Its suggestions are saved as drafts only and require your review.</div>
  <div class="section-title"><strong>Project photographs</strong><span id="photoCount">Loading…</span></div>
  <div class="photo-tools">
@@ -175,10 +176,10 @@ async function preparePhotos(){
   if(!pending.length)message('All available project photographs have already been prepared.');
   else {
    message(complete+' photographs prepared privately'+(skipped?'; '+skipped+' exceeded the storage limit':'')+'. Review the gallery and hide anything you do not want on the public page.');
-   if(!(project.draft_content&&project.draft_content.ai_generated_at))await generateAiDraft(true);
   }
  }catch(error){message(error.message+' You can run Prepare all photos again to continue.');}
  finally{busy=false;button.disabled=false;button.textContent='Prepare all photos';}
+ if(pending.length&&complete>0&&!(project.draft_content&&project.draft_content.ai_generated_at))await generateAiDraft(true);
 }
 function imageStyle(photo){
  var a=photo&&photo.media&&photo.media.image_adjustments||{},crop=photo&&photo.media&&photo.media.crop||{};
@@ -192,6 +193,7 @@ function renderPreview(){
  var description=content.description||'Your project description will appear here after you add it in the editor.';
  var intro='<div class="preview-intro"><div class="eyebrow">PROJECT NOTE</div><p>'+escapeHtml(description)+'</p></div>';
  var gallery='<div class="preview-gallery">'+visible.map(function(p){return '<figure>'+(blobFor(p.drive_file_id)?'<img style="'+imageStyle(p)+'" src="'+blobFor(p.drive_file_id)+'" alt="'+escapeHtml(p.name)+'">':'<div style="aspect-ratio:16/10;background:#eee"></div>')+'<figcaption>'+escapeHtml((p.media&&p.media.caption)||p.name)+'</figcaption></figure>';}).join('')+'</div>';
+ $('preview').className='canvas template-'+($('layoutTemplate')&&$('layoutTemplate').value||'editorial');
  $('preview').innerHTML=hero+'<div class="preview-body">'+intro+gallery+'</div><div class="preview-end">BRICKMEN · DESIGN THAT LOOKS AHEAD</div>';
  $('projectHeading').textContent=content.title||'Project editor';
 }
@@ -202,7 +204,7 @@ async function saveDraft(){
   var content=currentContent();
   await request('/api/studio/projects','POST',Object.assign({action:'save',projectId:projectId},content));
   var visible=orderedPhotos();
-  draftLayout={version:1,template:'editorial',grid:{sizeMm:5,columns:48},elements:[
+  draftLayout={version:1,template:$('layoutTemplate').value||'editorial',grid:{sizeMm:5,columns:48},elements:[
    {type:'hero',mediaId:coverId(),title:content.title},
    {type:'intro',text:content.description},
    {type:'gallery',mediaIds:visible.map(function(p){return p.drive_file_id;})}
@@ -278,6 +280,7 @@ $('photoList').addEventListener('click',async function(event){
 });
 ['title','location','category','year','startDate','description'].forEach(function(id){$(id).addEventListener('input',renderPreview);});
 $('starterCopy').addEventListener('click',starterDescription);
+$('layoutTemplate').addEventListener('change',function(){draftLayout.template=this.value;renderPreview();});
 $('generatePage').addEventListener('click',function(){generateAiDraft(false);});
 ['brightness','contrast','saturation'].forEach(function(id){$(id).addEventListener('input',function(){$(id+'Value').textContent=this.value+'%';});});
 $('saveAdjustments').addEventListener('click',applyAdjustments);
@@ -295,6 +298,7 @@ async function init(){
   setValues();
   var savedLayout=await request('/api/studio/layout?projectId='+encodeURIComponent(projectId));
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
+  $('layoutTemplate').value=draftLayout.template||'editorial';
   await loadPhotos();
   var pending=photos.filter(function(p){return !p.selected;});
   if(pending.length){$('photoHint').textContent='Automatically preparing '+pending.length+' project images in private storage. You can continue editing while the photo library updates.';preparePhotos();}
