@@ -312,7 +312,7 @@ async function handlePhotoAction(button){
  try{
   if(action==='import')await apiRequest('/api/studio/media','POST',{action:'import',projectId:card.dataset.projectCard,fileId:item.dataset.fileId});
   if(action==='cover')await apiRequest('/api/studio/media','POST',{action:'update',projectId:card.dataset.projectCard,mediaId:button.dataset.mediaId,is_cover:true});
-  await loadProjectPhotos(card);await refreshPortfolioProjects();
+  await refreshPortfolioProjects();var refreshedCard=document.querySelector('[data-project-card="'+card.dataset.projectCard+'"]');if(refreshedCard)await loadProjectPhotos(refreshedCard);
  }catch(err){showMessage('portfolioMessage',err.message);button.disabled=false;}
 }
 
