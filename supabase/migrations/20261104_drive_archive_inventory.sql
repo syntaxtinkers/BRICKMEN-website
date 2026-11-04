@@ -177,8 +177,7 @@ begin
   join stats on stats.drive_folder_id = fp.drive_file_id
   left join direct_stats on direct_stats.drive_folder_id = fp.drive_file_id
   where lower(trim(fp.name)) <> all (array[
-    'archive', 'archives', 'archived', 'old projects',
-    'projects', 'project archive', 'project archives',
+    'projects', 'project folders',
     'brickmen', 'my drive', 'shared drives', 'root',
     'drawings', 'photos', 'photographs', 'plans', 'sections',
     'interiors', 'exteriors', 'renders', 'documents', 'references',
