@@ -51,7 +51,7 @@ a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:grid;grid-t
 <form id="loginForm" autocomplete="on">
 <div class="field"><label for="email">Email address</label><input id="email" name="username" type="email" autocomplete="username" value="meticulousdesigncollaberative@gmail.com" required></div>
 <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
-<button class="btn" id="loginButton" type="submit">Sign in to Studio</button>
+<button class="btn" id="loginButton" type="submit" disabled>Loading Studio…</button>
 </form>
 <div class="msg" id="loginMessage" role="status"></div>
 <p class="muted-note">Access is limited to the administrator email configured for this website. There is no public sign-up.</p>
@@ -89,13 +89,16 @@ a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:grid;grid-t
 (function () {
 'use strict';
 var $=function(id){return document.getElementById(id);};
-var sessionKey='brickmen_studio_session_v1',config=null,session=null;
+var sessionKey='brickmen_studio_session_v1',config=null,session=null,configReady=false;
 function showMessage(id,message){var el=$(id);el.textContent=message;el.classList.add('show');}
 function clearMessage(id){var el=$(id);el.textContent='';el.classList.remove('show');}
 function setBusy(button,busy,label){button.disabled=busy;if(label)button.textContent=label;}
 function saveSession(value){session=value;sessionStorage.setItem(sessionKey,JSON.stringify(value));}
 function clearSession(){session=null;sessionStorage.removeItem(sessionKey);}
 async function authRequest(path,body){
+ if(!configReady||!config||!config.supabaseUrl||!config.publishableKey){
+  throw new Error('Brickmen Studio is still loading its secure sign-in settings. Refresh this page; if the problem continues, check the Vercel /api/config deployment and Supabase environment variables.');
+ }
  var response=await fetch(config.supabaseUrl+'/auth/v1/'+path,{method:'POST',headers:{apikey:config.publishableKey,'Content-Type':'application/json'},body:JSON.stringify(body)});
  var data={};try{data=await response.json();}catch(_){}
  if(!response.ok)throw new Error(data.msg||data.message||data.error_description||data.error||'Authentication failed.');
@@ -321,8 +324,14 @@ $('disconnectDriveButton').addEventListener('click',async function(){
 $('logoutButton').addEventListener('click',function(){clearSession();showLogin();});
 async function init(){
  try{
-  var configResponse=await fetch('/api/config',{cache:'no-store'});config=await configResponse.json();
-  if(!configResponse.ok)throw new Error(config.error||'Website configuration is not ready.');
+  var configResponse=await fetch('/api/config',{cache:'no-store'});
+  var configData=await configResponse.json().catch(function(){return null;});
+  if(!configResponse.ok)throw new Error((configData&&configData.error)||('Supabase settings could not be loaded (HTTP '+configResponse.status+'). Check that the latest Vercel deployment is Ready and that SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are configured for Production.'));
+  if(!configData||typeof configData.supabaseUrl!=='string'||!configData.supabaseUrl||typeof configData.publishableKey!=='string'||!configData.publishableKey){
+   throw new Error('The /api/config endpoint did not return the required Supabase URL and publishable key. Check the Vercel Production environment variables.');
+  }
+  config=configData;configReady=true;
+  $('loginButton').disabled=false;$('loginButton').textContent='Sign in to Studio';
   var query=new URLSearchParams(window.location.search),driveResult=query.get('drive'),driveMessage='';
   if(driveResult){
    var messages={connected:'Google Drive is now connected successfully.',state_error:'The Google security check expired or did not match. Please connect again.',token_error:'Google could not complete authorisation. Please try again.',scope_error:'Google did not grant the required read-only Drive permission.',refresh_token_missing:'Google did not return an offline refresh token. Reconnect and approve the requested access.',server_config_error:'The server-side Google OAuth settings are incomplete.',save_error:'Google authorised access, but Brickmen could not securely save the connection.',error:'Google authorisation was cancelled or denied.'};
@@ -332,7 +341,7 @@ async function init(){
    var me=await apiRequest('/api/studio/me');showStudio(me.email);await refreshDriveStatus();await refreshPortfolioProjects();
    if(driveMessage)showMessage('studioMessage',driveMessage);
   }else{showLogin();if(driveMessage)showMessage('loginMessage',driveMessage);}
- }catch(err){showLogin();showMessage('loginMessage',err.message);}
+ }catch(err){configReady=false;$('loginButton').disabled=true;$('loginButton').textContent='Studio unavailable';showLogin();showMessage('loginMessage',err.message);}
 }
 init();
 })();
