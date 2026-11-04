@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#171915">
-<title>Studio Login — Brickmen</title>
+<title>Brickmen Dashboard</title>
 <style>
 :root{--orange:#e45b2b;--ink:#171915;--muted:#777970;--line:#dedfd9;--paper:#f5f5f1;--white:#fff}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--paper);color:var(--ink);font-family:Inter,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
@@ -56,13 +56,13 @@ a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:grid;grid-t
 <section class="intro">
 <a class="brand" href="/">Brickmen<span>.</span></a>
 <div class="eyebrow">Private workspace / Studio access</div>
-<h1>Good work<br>begins <span>within.</span></h1>
-<p>The private Brickmen Studio is reserved for authorised administrators. Sign in to manage the practice and connect its project archive.</p>
+<h1>Your practice.<br>Your work. <span>One place.</span></h1>
+<p>The Brickmen Dashboard brings your project archive, image library, page editor and publishing controls together in one private workspace.</p>
 <a class="back" href="/">← Return to the public website</a>
 </section>
 <section class="card">
 <div id="loginPanel">
-<h2>Studio login</h2><p class="sub">Use the administrator account created in your Brickmen Supabase project.</p>
+<h2>Brickmen Dashboard</h2><p class="sub">Sign in to manage all project drafts, published pages, photographs and the practice website.</p>
 <form id="loginForm" autocomplete="on">
 <div class="field"><label for="email">Email address</label><input id="email" name="username" type="email" autocomplete="username" value="meticulousdesigncollaberative@gmail.com" required></div>
 <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
@@ -72,7 +72,7 @@ a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:grid;grid-t
 <p class="muted-note">Access is limited to the administrator email configured for this website. There is no public sign-up.</p>
 </div>
 <div id="studioPanel" class="hidden">
-<h2>Studio connections</h2><p class="sub">Signed in as <strong id="signedInEmail"></strong></p>
+<h2>Brickmen Dashboard</h2><p class="sub">Manage your projects and website · Signed in as <strong id="signedInEmail"></strong></p>
 <div class="status"><strong id="driveStatusTitle">Google Drive</strong><span id="driveStatusDetail">Checking connection…</span></div>
 <button class="btn" id="connectDriveButton" type="button">Connect Google Drive</button>
 <button class="btn secondary hidden" id="disconnectDriveButton" type="button">Disconnect Google Drive</button>
@@ -273,9 +273,11 @@ function renderPortfolioProjects(projects){
    ['title','location','category','project_year','start_date','description'].map(function(field){var checked=!p.visibility||p.visibility[field]!==false;return '<label><input type="checkbox" name="show_'+field+'" '+(checked?'checked':'')+'> '+field.replace('_',' ')+'</label>';}).join('')+
    '</div></div>'+
    '<div class="portfolio-field full"><div class="portfolio-actions">'+
+   '<button class="btn" type="button" data-project-action="editor">Open page editor ↗</button>'+
+   '<button class="btn secondary" type="button" data-project-action="delete">Delete project</button>'+
    '<button class="btn secondary" type="button" data-project-action="photos">Choose photos / edit images</button>'+
    '<button class="btn secondary" type="button" data-project-action="save">Save draft</button>'+
-   (p.is_published?'<button class="btn secondary" type="button" data-project-action="unpublish">Unpublish</button>':'<button class="btn" type="button" data-project-action="publish" disabled title="Prepare at least one public photo first">Approve & publish</button>')+
+   (p.is_published?'<button class="btn secondary" type="button" data-project-action="unpublish">Unpublish</button>':'<button class="btn" type="button" data-project-action="publish" '+(Number(p.media_count||0)>0?'':'disabled title="Open the page editor and prepare photographs first"')+'>Approve & publish</button>')+
    (p.review_status!=='rejected'?'<button class="btn secondary" type="button" data-project-action="reject">Reject</button>':'')+
    '</div><p class="portfolio-hint">'+(Number(p.public_media_count||0)>0?'Public photographs are ready for publication.':'Photo selection and secure image preparation are the next step; publication is disabled until then.')+'</p></div>'+
    '</form><section class="photo-library" data-photo-library><div class="photo-library-head"><strong>Project photo library</strong><span class="portfolio-badge" data-photo-count>Not loaded</span></div><p class="photo-note">Browse photographs in this Drive folder and its nested folders. Import selected images into private Studio storage; your original Drive files remain untouched.</p><div class="photo-grid" data-photo-grid></div></section></article>';
@@ -337,6 +339,8 @@ $('portfolioProjects')?.addEventListener('click',async function(event){
  if(button.dataset.projectAction==='photos'){await loadProjectPhotos(button.closest('[data-project-card]'));return;}
  var card=button.closest('[data-project-card]');var form=card&&card.querySelector('[data-project-form]');if(!card||!form)return;
  var projectId=card.dataset.projectCard,action=button.dataset.projectAction;
+  if(action==='editor'){location.href='/project-editor.html?id='+encodeURIComponent(projectId);return;}
+  if(action==='delete'&&!window.confirm('Delete this project from the Brickmen website? Its original Google Drive folder and files will remain untouched.'))return;
  button.disabled=true;
  try{
   var payload={action:action,projectId:projectId};
