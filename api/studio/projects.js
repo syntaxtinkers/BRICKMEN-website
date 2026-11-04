@@ -1,5 +1,8 @@
 'use strict';
 const { sendJson, methodNotAllowed, requireAdmin } = require('../_lib/admin');
+const studioMedia = require('../_lib/studio-media');
+const studioLayout = require('../_lib/studio-layout');
+const studioGenerate = require('../_lib/studio-generate');
 
 const base = () => (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const key = () => process.env.SUPABASE_SECRET_KEY || '';
@@ -63,6 +66,15 @@ async function listProjects() {
 }
 
 module.exports = async function studioProjects(req, res) {
+  const resource = String(req.query && req.query.resource || '');
+  const incoming = parseBody(req);
+  const incomingAction = String(incoming.action || '');
+  // Route photo, layout and AI actions through this single Vercel function on Hobby.
+  if (req.method === 'GET' && resource === 'media') return studioMedia(req, res);
+  if (req.method === 'GET' && resource === 'layout') return studioLayout(req, res);
+  if (req.method === 'POST' && ['import','import_batch','update'].includes(incomingAction)) return studioMedia(req, res);
+  if (req.method === 'POST' && incomingAction === 'save_layout') return studioLayout(req, res);
+  if (req.method === 'POST' && incomingAction === 'generate_ai') return studioGenerate(req, res);
   const user = await requireAdmin(req, res);
   if (!user) return;
 
