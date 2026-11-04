@@ -345,17 +345,19 @@ function onLayoutPointerDown(event){
  var textParagraph=event.target.closest('[data-text-edit]');
  if(textParagraph&&wasSelected&&!event.target.closest('[data-resize]')){textParagraph.contentEditable='true';textParagraph.focus();message('Text edit mode: edit the paragraph directly, then click outside it.');return;}
  var handle=event.target.closest('[data-resize]'),mode=handle?handle.dataset.resize:'move';
- selectedLayoutIndex=index;
  var grid=$('editorialGrid');if(!grid)return;
- Array.prototype.forEach.call(grid.querySelectorAll('.layout-item'),function(itemNode){itemNode.classList.remove('selected');Array.prototype.forEach.call(itemNode.querySelectorAll('.transform-handle'),function(h){h.remove();});});
- node.classList.add('selected');node.insertAdjacentHTML('beforeend',layoutHandles(index));
+ if(!wasSelected){
+  selectedLayoutIndex=index;
+  Array.prototype.forEach.call(grid.querySelectorAll('.layout-item'),function(itemNode){itemNode.classList.remove('selected');Array.prototype.forEach.call(itemNode.querySelectorAll('.transform-handle'),function(h){h.remove();});});
+  node.classList.add('selected');node.insertAdjacentHTML('beforeend',layoutHandles(index));
+ }
  $('layoutSelectionInfo').textContent='Selected '+(draftLayout.elements[index].type==='image'?'image':'text')+' block · drag to move · use orange handles to resize.';
  if(textParagraph&&!wasSelected&&!handle)return;
  if(event.target.closest('[contenteditable="true"]'))return;
  event.preventDefault();
  var item=draftLayout.elements[index];
  dragState={pointerId:event.pointerId,index:index,mode:mode,startX:event.clientX,startY:event.clientY,x:Number(item.x)||1,y:Number(item.y)||1,w:Number(item.w)||32,h:Number(item.h)||8,gridWidth:grid.clientWidth};
- try{grid.setPointerCapture(event.pointerId);}catch(_){}
+ try{node.setPointerCapture(event.pointerId);}catch(_){}
 }
 function onLayoutPointerMove(event){
  if(!dragState||event.pointerId!==dragState.pointerId)return;
