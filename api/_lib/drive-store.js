@@ -1,6 +1,6 @@
 'use strict';
 function getConfig() {
-  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const url = (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
   const key = process.env.SUPABASE_SECRET_KEY || '';
   if (!url || !key) throw new Error('Supabase backend configuration is incomplete.');
   return { url, key };
@@ -86,7 +86,7 @@ async function buildDriveProjectCandidates() {
 async function listDriveProjectCandidates(limit) {
   const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 500);
   const rows = await supabaseRest(
-    'brickmen_drive_project_candidates?select=drive_folder_id,name,parent_folder_id,folder_path,earliest_file_created_at,direct_file_count,descendant_file_count,is_archived,ai_title,ai_description,ai_categories,ai_confidence,review_status&order=earliest_file_created_at.desc.nullslast&limit=' + safeLimit
+    'brickmen_drive_project_candidates?select=drive_folder_id,name,parent_folder_id,folder_path,earliest_file_created_at,direct_file_count,descendant_file_count,is_archived,ai_title,ai_description,ai_categories,ai_confidence,review_status&is_active=eq.true&order=earliest_file_created_at.desc.nullslast&limit=' + safeLimit
   );
   return Array.isArray(rows) ? rows : [];
 }
