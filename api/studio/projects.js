@@ -139,7 +139,10 @@ module.exports = async function studioProjects(req, res) {
       let prepared = 0;
       for (const item of (Array.isArray(projectMedia) ? projectMedia : [])) {
         if (item.is_hidden) continue;
-        if (item.public_storage_path) { prepared++; continue; }
+        if (item.public_storage_path) {
+          if (!item.is_public) await db('brickmen_project_media?id=eq.' + encodeURIComponent(item.id), 'PATCH', { is_public: true, updated_at: new Date().toISOString() });
+          prepared++; continue;
+        }
         if (!item.private_storage_path) continue;
         const source = await fetch(base() + '/storage/v1/object/brickmen-studio-private/' + item.private_storage_path, {
           headers: { apikey: key(), Authorization: 'Bearer ' + key() }
