@@ -1,6 +1,6 @@
 'use strict';
 function getConfig() {
-  const url = (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.SUPABASE_SECRET_KEY || '';
   if (!url || !key) throw new Error('Supabase backend configuration is incomplete.');
   return { url, key };
