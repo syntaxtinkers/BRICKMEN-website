@@ -22,7 +22,7 @@ module.exports = async function generateProject(req, res) {
   const visibleMedia = (Array.isArray(media) ? media : []).filter(x => x.private_storage_path && !x.is_hidden);
   const images = visibleMedia.slice(0, 8);
   if (!images.length) return sendJson(res, 409, { error: 'Prepare at least one visible project photograph before arranging the page.' });
-  const fileList = visibleMedia.map(x => x.file_name).slice(0, 80);
+  const fileList = images.map(x => x.file_name);
   const instructions = `Create a distinctive architecture portfolio page for Brickmen in a ${tone} tone. This is a visual editorial, not a photo gallery. Return ONLY valid JSON with keys: title, category, description, visual_direction, photo_captions, sections.
 
 Project reference seed: ${projectId.slice(-8)}. Use this seed to make the design rhythm and image sequence specific to THIS project. Do not use the same generic pattern for every project.
@@ -58,31 +58,53 @@ Architecture accuracy rules: Study only what is visible in the supplied photogra
   for (const suggestion of captions) { const match = visibleMedia.find(x => x.file_name === suggestion.file_name); if (match) await db('brickmen_project_media?id=eq.' + encodeURIComponent(match.id), 'PATCH', { caption: String(suggestion.caption || '').slice(0,500), alt_text: String(suggestion.alt_text || '').slice(0,500), updated_at: new Date().toISOString() }); }
   const cover = visibleMedia.find(x => x.is_cover) || visibleMedia[0];
   const used = new Set(cover ? [cover.id] : []);
-  const elements = [];
+  const sections = [];
   const requestedSections = Array.isArray(result.sections) ? result.sections.slice(0, 36) : [];
   for (const section of requestedSections) {
    if (!section || typeof section !== 'object') continue;
    if (section.type === 'text') {
     const bodyText = String(section.body || '').trim().slice(0, 1800);
-    if (bodyText) elements.push({ type: 'text', eyebrow: String(section.eyebrow || 'PROJECT NOTE').slice(0,80), heading: String(section.heading || '').slice(0,140), body: bodyText, align: section.align === 'center' ? 'center' : 'left' });
+    if (bodyText) sections.push({ type: 'text', eyebrow: String(section.eyebrow || 'PROJECT NOTE').slice(0,80), heading: String(section.heading || '').slice(0,140), body: bodyText, align: section.align === 'center' ? 'center' : 'left' });
    } else if (section.type === 'image') {
-    const match = visibleMedia.find(x => x.file_name === String(section.file_name || ''));
+    const match = images.find(x => x.file_name === String(section.file_name || ''));
     if (!match || used.has(match.id)) continue;
     used.add(match.id);
     const cap = String(section.caption || (captions.find(x => x.file_name === match.file_name) || {}).caption || match.caption || '').slice(0,500);
-    elements.push({ type: 'image', mediaId: match.id, width: ['wide','medium','narrow'].includes(section.width) ? section.width : 'wide', align: ['left','center','right'].includes(section.align) ? section.align : 'center', aspect: ['landscape','portrait','natural'].includes(section.aspect) ? section.aspect : 'natural', caption: cap, spaceAfter: 'large' });
+    sections.push({ type: 'image', mediaId: match.id, width: ['wide','medium','narrow'].includes(section.width) ? section.width : 'wide', align: ['left','center','right'].includes(section.align) ? section.align : 'center', aspect: ['landscape','portrait','natural'].includes(section.aspect) ? section.aspect : 'natural', caption: cap, spaceAfter: 'large' });
    }
   }
   const rhythm = ['wide','medium','wide','narrow','medium'];
   const alignments = ['left','right','center','left','right'];
   visibleMedia.filter(x => !used.has(x.id)).forEach((item, index) => {
-   elements.push({ type: 'image', mediaId: item.id, width: rhythm[index % rhythm.length], align: alignments[index % alignments.length], aspect: 'natural', caption: String((captions.find(x => x.file_name === item.file_name) || {}).caption || item.caption || '').slice(0,500), spaceAfter: 'large' });
+   sections.push({ type: 'image', mediaId: item.id, width: rhythm[index % rhythm.length], align: alignments[index % alignments.length], aspect: 'natural', caption: String((captions.find(x => x.file_name === item.file_name) || {}).caption || item.caption || '').slice(0,500), spaceAfter: 'large' });
   });
-  if (elements.filter(x => x.type === 'text').length < 2 && draft.description) {
-   elements.splice(0, 0, { type: 'text', eyebrow: 'PROJECT NOTE', heading: '', body: draft.description.slice(0, 1200), align: 'left' });
+  if (sections.filter(x => x.type === 'text').length < 2 && draft.description) {
+   sections.splice(0, 0, { type: 'text', eyebrow: 'PROJECT NOTE', heading: '', body: draft.description.slice(0, 1200), align: 'left' });
   }
+  // Convert editorial blocks to explicit 5 mm grid coordinates (48 columns).
+  // The page starts with a calm top offset; block heights include generous whitespace.
+  let gridY = 3;
+  let textIndex = 0, imageIndex = 0;
+  const elements = sections.map((section) => {
+   if (section.type === 'text') {
+    const width = textIndex % 2 === 0 ? 34 : 28;
+    const x = section.align === 'center' ? Math.floor((48 - width) / 2) + 1 : (textIndex % 2 === 0 ? 3 : 17);
+    const height = Math.max(7, Math.min(11, 5 + Math.ceil(String(section.body || '').length / 115)));
+    const item = { ...section, x: Math.max(1, Math.min(49 - width, x)), y: gridY, w: width, h: height };
+    gridY += height + (textIndex === 0 ? 7 : 6);
+    textIndex++;
+    return item;
+   }
+   const width = section.width === 'narrow' ? 23 : section.width === 'medium' ? 32 : 43;
+   const x = section.align === 'left' ? 2 : section.align === 'right' ? 48 - width : Math.floor((48 - width) / 2) + 1;
+   const height = section.aspect === 'portrait' ? 31 : section.aspect === 'landscape' ? 23 : (imageIndex % 2 === 0 ? 25 : 28);
+   const item = { ...section, x, y: gridY, w: width, h: height };
+   gridY += height + 7;
+   imageIndex++;
+   return item;
+  });
   const direction = result.visual_direction && typeof result.visual_direction === 'object' ? result.visual_direction : {};
-  const layout = { version: 2, template: 'editorial', composition: ['asymmetric','alternating','centered','offset','quiet'].includes(direction.composition) ? direction.composition : 'asymmetric', heroMediaId: cover ? cover.id : null, visual_direction: direction, ai_generated_at: new Date().toISOString(), elements };
+  const layout = { version: 2, template: 'editorial', grid: { sizeMm: 5, columns: 48 }, composition: ['asymmetric','alternating','centered','offset','quiet'].includes(direction.composition) ? direction.composition : 'asymmetric', heroMediaId: cover ? cover.id : null, visual_direction: direction, ai_generated_at: new Date().toISOString(), elements };
   await db('brickmen_project_layouts?on_conflict=project_id', 'POST', { project_id: projectId, grid_size_mm: 5, canvas: { width: 240, columns: 48, unit: 'grid' }, draft_layout: layout, updated_by: user.id, updated_at: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal');
   return sendJson(res, 200, { draft_content: draft, visual_direction: result.visual_direction || {}, analyzed_photos: analyzed, skipped_photos: skipped, review_required: true });
  } catch (error) { return sendJson(res, 503, { error: error && error.message ? error.message : 'AI project preparation is unavailable.' }); }
