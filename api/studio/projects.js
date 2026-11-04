@@ -47,12 +47,19 @@ async function listProjects() {
     if (item.is_public && !item.is_hidden && item.public_storage_path) entry.public += 1;
     counts[item.project_id] = entry;
   });
-  return (Array.isArray(projects) ? projects : []).map((project) => ({
-    ...project,
-    folder_path: (candidateByFolder[project.drive_folder_id] || {}).folder_path || '',
-    media_count: (counts[project.id] || {}).total || 0,
-    public_media_count: (counts[project.id] || {}).public || 0
-  }));
+  return (Array.isArray(projects) ? projects : []).map((project) => {
+    const view = { ...project };
+    const draft = project.draft_content && typeof project.draft_content === 'object' ? project.draft_content : {};
+    ['title','location','category','project_year','start_date','description','visibility'].forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(draft, field)) view[field] = draft[field];
+    });
+    return {
+      ...view,
+      folder_path: (candidateByFolder[project.drive_folder_id] || {}).folder_path || '',
+      media_count: (counts[project.id] || {}).total || 0,
+      public_media_count: (counts[project.id] || {}).public || 0
+    };
+  });
 }
 
 module.exports = async function studioProjects(req, res) {
