@@ -34,6 +34,21 @@ a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:grid;grid-t
 .portfolio-hint{font-size:11px;color:var(--muted);line-height:1.6;margin:10px 0 0}
 @media(max-width:520px){.portfolio-form{grid-template-columns:1fr}.portfolio-field.full{grid-column:auto}.portfolio-project-head{display:block}}
 
+
+.photo-library{display:none;border-top:1px solid var(--line);margin-top:15px;padding-top:15px}
+.photo-library.open{display:block}
+.photo-library-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.photo-library-head strong{font-size:13px}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px}
+.photo-item{border:1px solid var(--line);background:#fafaf8;padding:7px;min-width:0}
+.photo-item img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#e9e9e4;display:block}
+.photo-item strong{display:block;font-size:10px;line-height:1.4;margin:7px 0;overflow-wrap:anywhere}
+.photo-item small{display:block;color:var(--muted);font-size:10px;margin-bottom:7px}
+.photo-item button{width:100%;padding:8px 5px;margin:4px 0 0;border:1px solid var(--ink);background:#fff;color:var(--ink);font-size:9px;font-weight:700;text-transform:uppercase;cursor:pointer}
+.photo-item button.primary{background:var(--ink);color:#fff}
+.photo-item button:disabled{opacity:.5;cursor:wait}
+.photo-note{font-size:11px;color:var(--muted);line-height:1.6;margin:10px 0}
+
 </style>
 </head>
 <body>
@@ -258,14 +273,49 @@ function renderPortfolioProjects(projects){
    ['title','location','category','project_year','start_date','description'].map(function(field){var checked=!p.visibility||p.visibility[field]!==false;return '<label><input type="checkbox" name="show_'+field+'" '+(checked?'checked':'')+'> '+field.replace('_',' ')+'</label>';}).join('')+
    '</div></div>'+
    '<div class="portfolio-field full"><div class="portfolio-actions">'+
+   '<button class="btn secondary" type="button" data-project-action="photos">Choose photos / edit images</button>'+
    '<button class="btn secondary" type="button" data-project-action="save">Save draft</button>'+
    (p.is_published?'<button class="btn secondary" type="button" data-project-action="unpublish">Unpublish</button>':'<button class="btn" type="button" data-project-action="publish" disabled title="Prepare at least one public photo first">Approve & publish</button>')+
    (p.review_status!=='rejected'?'<button class="btn secondary" type="button" data-project-action="reject">Reject</button>':'')+
    '</div><p class="portfolio-hint">'+(Number(p.public_media_count||0)>0?'Public photographs are ready for publication.':'Photo selection and secure image preparation are the next step; publication is disabled until then.')+'</p></div>'+
-   '</form></article>';
+   '</form><section class="photo-library" data-photo-library><div class="photo-library-head"><strong>Project photo library</strong><span class="portfolio-badge" data-photo-count>Not loaded</span></div><p class="photo-note">Browse photographs in this Drive folder and its nested folders. Import selected images into private Studio storage; your original Drive files remain untouched.</p><div class="photo-grid" data-photo-grid></div></section></article>';
   host.insertAdjacentHTML('beforeend',html);
  });
 }
+
+async function loadProjectPhotos(card){
+ var panel=card.querySelector('[data-photo-library]'),grid=card.querySelector('[data-photo-grid]'),count=card.querySelector('[data-photo-count]');
+ panel.classList.add('open');grid.textContent='Loading photographs…';count.textContent='Loading';
+ try{
+  var result=await apiRequest('/api/studio/media?projectId='+encodeURIComponent(card.dataset.projectCard));
+  grid.textContent='';count.textContent=result.photos.length+' found';
+  if(!result.photos.length){grid.textContent='No image files found in this Drive project folder.';return;}
+  result.photos.forEach(function(photo){
+   var item=document.createElement('div');item.className='photo-item';item.dataset.fileId=photo.drive_file_id;
+   var img=document.createElement('img');img.alt=photo.name||'Project photograph';img.loading='lazy';img.src='/api/studio/media?projectId='+encodeURIComponent(card.dataset.projectCard)+'&preview='+encodeURIComponent(photo.drive_file_id);
+   // Authenticated image fetch: the private preview endpoint never exposes a public URL.
+   img.removeAttribute('src');fetch('/api/studio/media?projectId='+encodeURIComponent(card.dataset.projectCard)+'&preview='+encodeURIComponent(photo.drive_file_id),{headers:{Authorization:'Bearer '+session.access_token}}).then(function(r){if(!r.ok)throw new Error('Preview unavailable');return r.blob();}).then(function(blob){img.src=URL.createObjectURL(blob);}).catch(function(){img.alt='Preview unavailable';});
+   var name=document.createElement('strong');name.textContent=photo.name;var info=document.createElement('small');info.textContent=photo.selected?'Imported to Studio':'Available in Google Drive';
+   item.appendChild(img);item.appendChild(name);item.appendChild(info);
+   if(photo.selected&&photo.media){
+    var cover=document.createElement('button');cover.textContent=photo.media.is_cover?'Cover photograph':'Set as cover';cover.className=photo.media.is_cover?'primary':'';cover.dataset.photoAction='cover';cover.dataset.mediaId=photo.media.id;item.appendChild(cover);
+   }else{
+    var importButton=document.createElement('button');importButton.textContent='Import to Studio';importButton.className='primary';importButton.dataset.photoAction='import';item.appendChild(importButton);
+   }
+   grid.appendChild(item);
+  });
+ }catch(err){grid.textContent=err.message;count.textContent='Error';}
+}
+async function handlePhotoAction(button){
+ var card=button.closest('[data-project-card]'),item=button.closest('.photo-item');if(!card||!item)return;
+ button.disabled=true;var action=button.dataset.photoAction;
+ try{
+  if(action==='import')await apiRequest('/api/studio/media','POST',{action:'import',projectId:card.dataset.projectCard,fileId:item.dataset.fileId});
+  if(action==='cover')await apiRequest('/api/studio/media','POST',{action:'update',projectId:card.dataset.projectCard,mediaId:button.dataset.mediaId,is_cover:true});
+  await loadProjectPhotos(card);await refreshPortfolioProjects();
+ }catch(err){showMessage('portfolioMessage',err.message);button.disabled=false;}
+}
+
 async function refreshPortfolioProjects(){
  try{var result=await apiRequest('/api/studio/projects');renderPortfolioProjects(result.projects||[]);}
  catch(err){if($('portfolioProjects'))showMessage('portfolioMessage',err.message);}
@@ -282,7 +332,9 @@ async function syncPortfolioCandidates(){
 }
 $('syncPortfolioButton')?.addEventListener('click',syncPortfolioCandidates);
 $('portfolioProjects')?.addEventListener('click',async function(event){
+ var photoButton=event.target.closest('[data-photo-action]');if(photoButton){await handlePhotoAction(photoButton);return;}
  var button=event.target.closest('[data-project-action]');if(!button)return;
+ if(button.dataset.projectAction==='photos'){await loadProjectPhotos(button.closest('[data-project-card]'));return;}
  var card=button.closest('[data-project-card]');var form=card&&card.querySelector('[data-project-form]');if(!card||!form)return;
  var projectId=card.dataset.projectCard,action=button.dataset.projectAction;
  button.disabled=true;
