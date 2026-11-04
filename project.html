@@ -20,6 +20,7 @@ main{max-width:1600px;margin:auto}.hero{display:grid;grid-template-columns:1.15f
 #page.template-gallery .hero-media img{min-height:620px;max-height:none}
 #page.template-gallery .hero-copy{position:relative;min-height:620px;background:linear-gradient(0deg,rgba(15,17,14,.82),rgba(15,17,14,.05) 75%);padding:clamp(24px,6vw,80px)}
 #page.template-gallery .gallery{grid-template-columns:repeat(3,minmax(0,1fr))}
+.editorial-layout{max-width:960px;width:100%;margin:0 auto 80px;padding:18px 0 40px;display:grid;grid-template-columns:repeat(48,minmax(0,1fr));grid-auto-rows:19px;align-content:start}.editorial-text{display:flex;align-items:center;padding:22px 26px;min-width:0}.editorial-text.center{text-align:center;justify-content:center}.editorial-text .eyebrow{display:block;color:#85887f;margin-bottom:12px}.editorial-text h2{font-size:clamp(20px,2.5vw,32px);font-weight:500;line-height:1.08;letter-spacing:-.04em;margin:0 0 12px}.editorial-text p{font-size:clamp(13px,1.25vw,16px);line-height:1.8;color:#555950;margin:0;white-space:pre-wrap}.editorial-image{position:relative;overflow:hidden;background:#eee;margin:0;min-width:0;min-height:0}.editorial-image img{display:block;width:100%;height:100%;object-fit:cover}.editorial-image figcaption{position:absolute;bottom:0;left:0;right:0;padding:10px 12px;color:white;background:linear-gradient(transparent,rgba(0,0,0,.65));font-size:10px;line-height:1.5}.editorial-intro{max-width:880px;margin:0 auto;padding:80px 28px 30px;display:grid;grid-template-columns:160px minmax(0,1fr);gap:34px}.editorial-intro .intro-label{font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);font-weight:700}.editorial-intro p{font-size:clamp(16px,1.8vw,21px);line-height:1.75;color:#52564d;margin:0;white-space:pre-wrap}
 .error{padding:100px 24px;text-align:center;color:var(--muted)}
 @media(max-width:760px){header{padding:18px 18px}.logo{font-size:24px}.hero{grid-template-columns:1fr}.hero-media,.hero-media img{min-height:300px;max-height:430px}.hero-copy{min-height:280px}.intro{grid-template-columns:1fr;gap:15px;padding:45px 24px}.gallery{grid-template-columns:1fr;padding:0 12px 45px}.gallery figure:first-child{grid-column:auto}.gallery figure:first-child img{aspect-ratio:16/10}}
 </style>
@@ -36,16 +37,30 @@ function esc(value){return String(value===null||value===undefined?'':value).repl
 fetch('/api/portfolio',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('Portfolio unavailable');return r.json();}).then(function(data){
  var p=(data.projects||[]).find(function(x){return x.slug===slug;});
  if(!p){host.innerHTML='<div class="error"><h1>Project unavailable</h1><p>This project may be unpublished or the link may be incorrect.</p><a href="/#work">Return to selected work</a></div>';return;}
+ var layout=p.layout&&typeof p.layout==='object'?p.layout:{};
  var media=(p.media||[]).slice().sort(function(a,b){return Number(b.is_cover)-Number(a.is_cover)||Number(a.sort_order||0)-Number(b.sort_order||0);});
- var cover=media.find(function(x){return x.is_cover;})||media[0];
+ var cover=(layout.heroMediaId?media.find(function(x){return x.id===layout.heroMediaId;}):null)||media.find(function(x){return x.is_cover;})||media[0];
  var meta=[p.location,p.category,p.project_year].filter(Boolean).join(' · ');
- var template=p.layout&&['editorial','minimal','gallery'].includes(p.layout.template)?p.layout.template:'editorial';
+ var template='editorial';
  function imageStyle(item){var a=item&&item.image_adjustments||{},crop=item&&item.crop||{};var b=Math.max(50,Math.min(150,Number(a.brightness)||100)),c=Math.max(50,Math.min(150,Number(a.contrast)||100)),s=Math.max(0,Math.min(200,Number(a.saturation)||100));return 'filter:brightness('+b+'%) contrast('+c+'%) saturate('+s+'%);object-fit:'+(crop.fit==='contain'?'contain':'cover')+';';}
+ var hero='<section class="hero"><div class="hero-media">'+(cover?'<img style="'+imageStyle(cover)+'" src="'+esc(cover.url)+'" alt="'+esc(cover.alt_text||p.title)+'">':'')+'</div><div class="hero-copy"><div class="eyebrow">BRICKMEN / SELECTED WORK</div><h1>'+esc(p.title||'Project')+'</h1><div class="meta">'+esc(meta)+'</div></div></section>';
+ var intro=p.description?'<section class="editorial-intro"><div class="intro-label">Project note</div><p>'+esc(p.description)+'</p></section>':'';
+ var byId={};media.forEach(function(item){if(item.id)byId[item.id]=item;});
+ var elements=Array.isArray(layout.elements)?layout.elements:[];
+ var hasGrid=elements.some(function(item){return item&&['text','image'].includes(item.type)&&Number(item.w)>0&&Number(item.h)>0;});
+ var editorial=hasGrid?'<section class="editorial-layout">'+elements.map(function(item){
+  if(!item||!['text','image'].includes(item.type))return '';
+  var x=Math.max(1,Math.min(48,Number(item.x)||1)),y=Math.max(1,Number(item.y)||1),w=Math.max(4,Math.min(48,Number(item.w)||32)),h=Math.max(3,Math.min(1000,Number(item.h)||8));w=Math.min(w,49-x);
+  var pos='grid-column:'+x+'/span '+w+';grid-row:'+y+'/span '+h+';';
+  if(item.type==='image'){
+   var photo=byId[item.mediaId];if(!photo)return '';
+   return '<figure class="editorial-image" style="'+pos+'"><img style="'+imageStyle(photo)+'" src="'+esc(photo.url)+'" alt="'+esc(photo.alt_text||p.title||'Project photograph')+'" loading="lazy">'+(item.caption||photo.caption?'<figcaption>'+esc(item.caption||photo.caption)+'</figcaption>':'')+'</figure>';
+  }
+  return '<section class="editorial-text'+(item.align==='center'?' center':'')+'" style="'+pos+'"><div><span class="eyebrow">'+esc(item.eyebrow||'PROJECT NOTE')+'</span>'+(item.heading?'<h2>'+esc(item.heading)+'</h2>':'')+'<p>'+esc(item.body||'')+'</p></div></section>';
+ }).join('')+'</section>':'';
+ var gallery='<section class="gallery">'+media.filter(function(x){return x!==cover;}).map(function(item){return '<figure><img style="'+imageStyle(item)+'" src="'+esc(item.url)+'" alt="'+esc(item.alt_text||p.title)+'" loading="lazy">'+(item.caption?'<figcaption>'+esc(item.caption)+'</figcaption>':'')+'</figure>';}).join('')+'</section>';
  host.className='template-'+template;
- host.innerHTML='<section class="hero"><div class="hero-media">'+(cover?'<img style="'+imageStyle(cover)+'" src="'+esc(cover.url)+'" alt="'+esc(cover.alt_text||p.title)+'">':'')+'</div><div class="hero-copy"><div class="eyebrow">BRICKMEN / SELECTED WORK</div><h1>'+esc(p.title||'Project')+'</h1><div class="meta">'+esc(meta)+'</div></div></section>'+
- (p.description?'<section class="intro"><div class="intro-label">Project note</div><p>'+esc(p.description)+'</p></section>':'')+
- '<section class="gallery">'+media.filter(function(x){return x!==cover;}).map(function(item){return '<figure><img style="'+imageStyle(item)+'" src="'+esc(item.url)+'" alt="'+esc(item.alt_text||p.title)+'" loading="lazy">'+(item.caption?'<figcaption>'+esc(item.caption)+'</figcaption>':'')+'</figure>';}).join('')+'</section>'+
- '<div class="end">Brickmen · Design that looks ahead</div>';
+ host.innerHTML=hero+intro+(hasGrid?editorial:gallery)+'<div class="end">Brickmen · Design that looks ahead</div>';
  document.title=(p.title||'Project')+' — Brickmen';
  }).catch(function(){host.innerHTML='<div class="error">The project could not be loaded right now.</div>';});
 })();
