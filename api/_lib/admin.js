@@ -23,11 +23,12 @@ function methodNotAllowed(res, allowed) {
   sendJson(res, 405, { error: 'Method not allowed.' });
 }
 async function requireAdmin(req, res) {
-  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const url = (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
   const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || '';
+  const serviceKey = process.env.SUPABASE_SECRET_KEY || '';
   const authHeader = req.headers.authorization || '';
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!url || !publishableKey) {
+  const match = authHeader.match(/^Bearer\\s+(.+)$/i);
+  if (!url || !publishableKey || !serviceKey) {
     sendJson(res, 503, { error: 'Supabase server configuration is incomplete.' });
     return null;
   }
@@ -52,12 +53,53 @@ async function requireAdmin(req, res) {
   let user;
   try { user = await response.json(); } catch (_) { user = null; }
   const email = String(user && user.email || '').trim().toLowerCase();
-  const allowed = String(process.env.BRICKMEN_ADMIN_EMAILS || '')
-    .split(/[;,\n]/).map((item) => item.trim().toLowerCase()).filter(Boolean);
-  if (!email || !allowed.length || !allowed.includes(email)) {
+  const userId = String(user && user.id || '');
+  if (!email || !userId) {
+    sendJson(res, 403, { error: 'The signed-in account has no verified email identity.' });
+    return null;
+  }
+
+  const bootstrapEmails = String(process.env.BRICKMEN_ADMIN_EMAILS || '')
+    .split(/[;,\\n]/).map((item) => item.trim().toLowerCase()).filter(Boolean);
+  let adminRecord = null;
+  try {
+    const lookup = await fetch(
+      url + '/rest/v1/brickmen_studio_admins?select=role,is_active&user_id=eq.' + encodeURIComponent(userId) + '&limit=1',
+      { headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey } }
+    );
+    if (lookup.ok) {
+      const rows = await lookup.json();
+      if (Array.isArray(rows) && rows.length && rows[0].is_active) adminRecord = rows[0];
+    }
+  } catch (_) {}
+
+  // The existing environment allowlist remains the safe bootstrap path for the first owner.
+  if (!adminRecord && bootstrapEmails.includes(email)) {
+    try {
+      const seed = await fetch(url + '/rest/v1/brickmen_studio_admins?on_conflict=user_id', {
+        method: 'POST',
+        headers: {
+          apikey: serviceKey,
+          Authorization: 'Bearer ' + serviceKey,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify({ user_id: userId, email, role: 'owner', is_active: true })
+      });
+      if (seed.ok) {
+        const rows = await seed.json();
+        adminRecord = Array.isArray(rows) && rows.length ? rows[0] : { role: 'owner', is_active: true };
+      }
+    } catch (_) {}
+    if (!adminRecord) adminRecord = { role: 'owner', is_active: true };
+  }
+
+  if (!adminRecord) {
     sendJson(res, 403, { error: 'This account is not authorised for Brickmen Studio administration.' });
     return null;
   }
+  user.email = email;
+  user.studio_role = adminRecord.role || 'admin';
   return user;
 }
 module.exports = { sendJson, parseCookies, methodNotAllowed, requireAdmin };
