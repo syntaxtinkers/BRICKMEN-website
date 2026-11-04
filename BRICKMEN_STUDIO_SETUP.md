@@ -39,5 +39,13 @@ Open \`https://brickmen-website.vercel.app/studio.html\`, sign in with the admin
 
 This first phase establishes and verifies the secure OAuth connection only. The actual Drive catalogue scan is a separate next phase after the connection is confirmed.
 
+## 6. First Drive archive inventory
+
+After the Google Drive status reads "connected", run the additive migration `supabase/migrations/20261104_drive_archive_inventory.sql` in the Supabase SQL Editor. It creates private tables for Drive file metadata, scan progress, and project-folder review candidates. It does not modify the OAuth connection table or any existing portfolio content.
+
+After the migration is applied and the latest Vercel deployment is Ready, return to `/studio.html` and choose **Scan Google Drive**. The scanner uses the read-only Drive API with the `user` corpus and shared-drive support enabled. It indexes metadata in batches, computes each candidate folder's start date from the earliest descendant file creation time, and marks folders inside archive paths. Candidates remain private and unpublished.
+
+The initial scan builds a metadata inventory and folder candidates. AI image classification, project descriptions, and final publishing approvals are a subsequent phase; no Drive files are modified or copied during this inventory scan.
+
 ## Security
 The Supabase secret key, Google client secret, and encryption key stay in Vercel Secrets. The Google refresh token is encrypted with AES-256-GCM in the backend before it is stored in Supabase. The API requires a valid Supabase Auth session and an email listed in \`BRICKMEN_ADMIN_EMAILS\`. The configured Drive permission is read-only; no Drive file mutation operation is implemented.
