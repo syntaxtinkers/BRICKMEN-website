@@ -237,7 +237,7 @@ function renderPortfolioProjects(projects){
   var status=p.is_published?'Published':(p.review_status==='rejected'?'Rejected':'Private draft');
   var html='<article class="portfolio-project" data-project-card="'+portfolioEsc(p.id)+'">'+
    '<div class="portfolio-project-head"><div><strong>'+portfolioEsc(p.title||'Untitled project')+'</strong>'+
-   '<div class="portfolio-project-meta">'+portfolioEsc(p.drive_folder_id||'')+'<br>Created from Drive · '+Number(p.media_count||0)+' photos indexed · '+Number(p.public_media_count||0)+' public photos</div></div>'+
+   '<div class="portfolio-project-meta">'+portfolioEsc(p.folder_path||p.drive_folder_id||'')+'<br>Created from Drive · '+Number(p.media_count||0)+' photos indexed · '+Number(p.public_media_count||0)+' public photos<br><a href="https://drive.google.com/drive/folders/'+encodeURIComponent(p.drive_folder_id)+'" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Open source folder ↗</a></div></div>'+
    '<div><span class="portfolio-badge">'+status+'</span>'+(p.is_archived?'<span class="portfolio-badge">Archived</span>':'')+'</div></div>'+
    '<form class="portfolio-form" data-project-form>'+
    '<div class="portfolio-field"><label>Project title</label><input name="title" maxlength="180" required value="'+portfolioEsc(p.title)+'"></div>'+
