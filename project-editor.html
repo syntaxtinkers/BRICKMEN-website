@@ -330,11 +330,14 @@ function applyLayoutPosition(node,item){
 function onLayoutPointerDown(event){
  var node=event.target.closest('[data-layout-index]');if(!node||!$('preview').contains(node))return;
  var index=Number(node.dataset.layoutIndex);if(!Number.isInteger(index)||!draftLayout.elements[index])return;
+ var handle=event.target.closest('[data-resize]'),mode=handle?handle.dataset.resize:'move';
  selectedLayoutIndex=index;
- if(event.target.closest('[contenteditable="true"]')){return;}
- var mode=event.target.closest('[data-resize]')?event.target.closest('[data-resize]').dataset.resize:'move';
- event.preventDefault();renderPreview();
- var grid=$('editorialGrid'),selected=grid&&grid.querySelector('[data-layout-index="'+index+'"]');if(!grid||!selected)return;
+ var grid=$('editorialGrid');if(!grid)return;
+ Array.prototype.forEach.call(grid.querySelectorAll('.layout-item'),function(itemNode){itemNode.classList.remove('selected');Array.prototype.forEach.call(itemNode.querySelectorAll('.transform-handle'),function(h){h.remove();});});
+ node.classList.add('selected');node.insertAdjacentHTML('beforeend',layoutHandles(index));
+ $('layoutSelectionInfo').textContent='Selected '+(draftLayout.elements[index].type==='image'?'image':'text')+' block · drag to move · use orange handles to resize.';
+ if(event.target.closest('[contenteditable="true"]'))return;
+ event.preventDefault();
  var item=draftLayout.elements[index];
  dragState={pointerId:event.pointerId,index:index,mode:mode,startX:event.clientX,startY:event.clientY,x:Number(item.x)||1,y:Number(item.y)||1,w:Number(item.w)||32,h:Number(item.h)||8,gridWidth:grid.clientWidth};
  try{grid.setPointerCapture(event.pointerId);}catch(_){}
@@ -358,7 +361,7 @@ function onLayoutPointerMove(event){
 }
 function onLayoutPointerUp(event){
  if(!dragState||event.pointerId!==dragState.pointerId)return;
- dragState=null;renderPreview();
+ dragState=null;
 }
 $('photoList').addEventListener('click',async function(event){
  var button=event.target.closest('[data-action]');if(!button)return;var row=button.closest('[data-file-id]');var photo=photos.find(function(p){return p.drive_file_id===row.dataset.fileId;});if(!photo)return;
