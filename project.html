@@ -61,7 +61,8 @@ fetch('/api/portfolio',{cache:'no-store'}).then(function(r){if(!r.ok)throw new E
   return '<section class="editorial-text'+(item.align==='center'?' center':'')+'" style="'+pos+'"><div><span class="eyebrow">'+esc(item.eyebrow||'PROJECT NOTE')+'</span>'+(item.heading?'<h2>'+esc(item.heading)+'</h2>':'')+'<p>'+esc(item.body||'')+'</p></div></section>';
  }).join('')+'</section>':'';
  var gallery='<section class="gallery">'+media.filter(function(x){return x!==cover;}).map(function(item){return '<figure><img style="'+imageStyle(item)+'" src="'+esc(item.url)+'" alt="'+esc(item.alt_text||p.title)+'" loading="lazy">'+(item.caption?'<figcaption>'+esc(item.caption)+'</figcaption>':'')+'</figure>';}).join('')+'</section>';
- host.className='template-'+template;\n if(window.BrickmenTemplates&&layout.custom_theme)window.BrickmenTemplates.applyCustom(host,layout.custom_theme);
+ host.className='template-'+template;
+ if(window.BrickmenTemplates&&layout.custom_theme)window.BrickmenTemplates.applyCustom(host,layout.custom_theme);
  host.innerHTML=hero+intro+(hasGrid?editorial:gallery)+'<div class="end">Brickmen · Design that looks ahead</div>';
  document.title=(p.title||'Project')+' — Brickmen';
  }).catch(function(){host.innerHTML='<div class="error">The project could not be loaded right now.</div>';});
