@@ -52,8 +52,8 @@
  <div class="field"><label for="description">Project story / description</label><textarea id="description" maxlength="12000" placeholder="Write the approved project narrative here."></textarea></div>
  <div class="field"><label for="aiTone">AI writing tone</label><select id="aiTone"><option value="Classy">Architectural editorial</option><option value="Editorial">Editorial</option><option value="Minimal">Minimal</option><option value="Technical">Technical</option><option value="Poetic">Poetic</option><option value="Superhero comic">Brickmen superhero comic</option></select></div>
  <div class="photo-tools"><button class="btn" id="generatePage" type="button">AI arrange &amp; describe</button><button class="btn light" id="starterCopy" type="button">Create a basic starter</button></div>
- <div class="field"><label for="layoutTemplate">Page layout</label><select id="layoutTemplate"><option value="editorial">Editorial / Architecture journal</option><option value="minimal">Minimal / Quiet gallery</option><option value="gallery">Gallery / Image-led</option></select></div>
- <div class="hint">One click analyses the imported photographs, writes project-specific copy and arranges images and text on the 5 mm grid. Then select, drag and resize each block before publishing.</div>
+ <div class="field"><label for="layoutTemplate">Page layout</label><select id="layoutTemplate"><option value="ai-custom">AI designs a new project-specific template</option></select></div>
+ <div class="hint">Choose from 40 individually art-directed magazine templates, or let AI invent a new visual identity for this project. AI studies the selected photographs, writes the feature and arranges the page; you can still edit every block before publishing.</div>
  <div class="section-title"><strong>Project photographs</strong><span id="photoCount">Loading…</span></div>
  <div class="photo-tools">
   <button class="btn" id="prepareAll" type="button">Prepare all photos</button>
@@ -83,9 +83,11 @@
  <div id="preview" class="canvas"><div class="loading">Preparing your project preview…</div></div>
 </main>
 </div>
+<script src="/template-library.js"></script>
 <script>
 (function(){
 'use strict';
+if(window.BrickmenTemplates)window.BrickmenTemplates.ensureStyles();
 var $=function(id){return document.getElementById(id);};
 var query=new URLSearchParams(location.search),projectId=query.get('id')||'';
 var session=null,project=null,photos=[],objects={},selectedPhotoId=null,draftLayout={version:2,template:'editorial',grid:{sizeMm:5,columns:48},elements:[]},busy=false,selectedLayoutIndex=null,dragState=null,gridVisible=true;
@@ -253,19 +255,25 @@ function renderPreview(){
   return '<section class="layout-item layout-text'+(item.align==='center'?' center':'')+(selectedLayoutIndex===index?' selected':'')+'" data-layout-index="'+index+'" style="'+position+'"><div class="layout-text-inner"><span class="eyebrow">'+escapeHtml(item.eyebrow||'PROJECT NOTE')+'</span>'+(item.heading?'<h3>'+escapeHtml(item.heading)+'</h3>':'')+'<p data-text-edit="'+index+'">'+escapeHtml(item.body||'Add your text here.')+'</p></div>'+layoutHandles(index)+'</section>';
  }).join('');
  var grid='<div class="editorial-grid-scroll"><div id="editorialGrid" class="editorial-grid'+(gridVisible?' with-grid':'')+'">'+blocks+'</div></div>';
- $('preview').className='canvas template-'+($('layoutTemplate')&&$('layoutTemplate').value||'editorial');
+ var templateId=(draftLayout&&draftLayout.template)||($('layoutTemplate')&&$('layoutTemplate').value)||'t01';\n $('preview').className='canvas template-'+(templateId==='ai-custom'?'t01':templateId);\n if(window.BrickmenTemplates&&draftLayout&&draftLayout.custom_theme)window.BrickmenTemplates.applyCustom($('preview'),draftLayout.custom_theme);
  $('preview').innerHTML=hero+'<div class="preview-body">'+intro+grid+'</div><div class="preview-end">BRICKMEN · DESIGN THAT LOOKS AHEAD</div>';
  $('projectHeading').textContent=content.title||'Project editor';
  $('toggleGrid').textContent=gridVisible?'Hide grid':'Show grid';
  $('layoutSelectionInfo').textContent=selectedLayoutIndex===null?'Select any image or text block to move or resize it.':'Selected '+(elements[selectedLayoutIndex]&&elements[selectedLayoutIndex].type==='image'?'image':'text')+' block · drag to move · use orange handles to resize.';
 }
+function populateTemplateChoices(){
+ var select=$('layoutTemplate');if(!select||!window.BrickmenTemplates)return;
+ var current=select.value||'ai-custom';select.innerHTML='<option value="ai-custom">✦ AI creates a brand-new project-specific design</option><optgroup label="40 editorial templates">'+window.BrickmenTemplates.all.map(function(t){return '<option value="'+t.id+'">'+t.id.toUpperCase()+' · '+t.name+'</option>';}).join('')+'</optgroup>';
+ select.value=current;
+}
+populateTemplateChoices();
 function escapeHtml(value){return String(value||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
 async function saveDraft(){
  if(busy)return false;busy=true;clearMessage();var saved=false;
  try{
   var content=currentContent();
   await request('/api/studio/projects','POST',Object.assign({action:'save',projectId:projectId},content));
-  draftLayout=Object.assign({},draftLayout||{},{version:2,template:$('layoutTemplate').value||'editorial',grid:{sizeMm:5,columns:48},elements:Array.isArray(draftLayout&&draftLayout.elements)?draftLayout.elements:[]});
+  draftLayout=Object.assign({},draftLayout||{},{version:2,template:(draftLayout&&draftLayout.template)||$('layoutTemplate').value||'t01',grid:{sizeMm:5,columns:48},elements:Array.isArray(draftLayout&&draftLayout.elements)?draftLayout.elements:[]});
   await request('/api/studio/projects','POST',{action:'save_layout',projectId:projectId,canvas:{width:240,columns:48,unit:'grid'},draft_layout:draftLayout});
   message('Draft saved. Your live published page is unchanged until you publish.');saved=true;
  }catch(error){message(error.message);}
@@ -278,7 +286,7 @@ async function generateAiDraft(automatic){
  if(!automatic&&!confirm('Analyse the imported project photographs and create a fresh editable text and design proposal? This will replace the current draft description and photo captions.'))return false;
  busy=true;clearMessage();var button=$('generatePage');button.disabled=true;button.textContent='Analysing photographs…';
  try{
-  var result=await request('/api/studio/projects','POST',{action:'generate_ai',projectId:projectId,tone:$('aiTone').value||'Classy'});
+  var result=await request('/api/studio/projects','POST',{action:'generate_ai',projectId:projectId,tone:$('aiTone').value||'Classy',templateId:$('layoutTemplate').value||'ai-custom'});
   project.draft_content=result.draft_content||project.draft_content||{};
   $('title').value=project.draft_content.title||$('title').value;
   $('category').value=project.draft_content.category||$('category').value;
@@ -286,7 +294,7 @@ async function generateAiDraft(automatic){
   var savedLayout=await request('/api/studio/projects?resource=layout&projectId='+encodeURIComponent(projectId));
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
   selectedLayoutIndex=null;dragState=null;
-  $('layoutTemplate').value=draftLayout.template||'editorial';
+  $('layoutTemplate').value=draftLayout.template||'t01';
   await loadPhotos();
   renderPreview();
   message('AI created an editable '+$('aiTone').value.toLowerCase()+' draft after analysing '+result.analyzed_photos+' photographs'+(result.skipped_photos?'; '+result.skipped_photos+' large or unavailable images were skipped':'')+'. Review every detail before publishing.');
@@ -417,7 +425,7 @@ $('preview').addEventListener('focusout',function(event){
 window.addEventListener('pointermove',onLayoutPointerMove);
 window.addEventListener('pointerup',onLayoutPointerUp);
 window.addEventListener('pointercancel',onLayoutPointerUp);
-$('layoutTemplate').addEventListener('change',function(){draftLayout.template=this.value;renderPreview();});
+$('layoutTemplate').addEventListener('change',function(){if(this.value!=='ai-custom'){draftLayout.template=this.value;delete draftLayout.custom_theme;}else{draftLayout.template='ai-custom';}renderPreview();});
 $('generatePage').addEventListener('click',function(){generateAiDraft(false);});
 ['brightness','contrast','saturation'].forEach(function(id){$(id).addEventListener('input',function(){$(id+'Value').textContent=this.value+'%';});});
 $('saveAdjustments').addEventListener('click',applyAdjustments);
