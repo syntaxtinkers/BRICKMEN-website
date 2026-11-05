@@ -294,7 +294,7 @@ async function generateAiDraft(automatic){
   var savedLayout=await request('/api/studio/projects?resource=layout&projectId='+encodeURIComponent(projectId));
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
   selectedLayoutIndex=null;dragState=null;
-  $('layoutTemplate').value=draftLayout.template||'t01';
+  $('layoutTemplate').value=draftLayout.template==='custom'?'ai-custom':(draftLayout.template||'t01');
   await loadPhotos();
   renderPreview();
   message('AI created an editable '+$('aiTone').value.toLowerCase()+' draft after analysing '+result.analyzed_photos+' photographs'+(result.skipped_photos?'; '+result.skipped_photos+' large or unavailable images were skipped':'')+'. Review every detail before publishing.');
@@ -443,7 +443,7 @@ async function init(){
   setValues();
   var savedLayout=await request('/api/studio/projects?resource=layout&projectId='+encodeURIComponent(projectId));
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
-  $('layoutTemplate').value=draftLayout.template||'editorial';
+  $('layoutTemplate').value=draftLayout.template==='custom'?'ai-custom':(draftLayout.template||'t01');
   await loadPhotos();
   var pending=photos.filter(function(p){return !p.selected;});
   if(pending.length){$('photoHint').textContent='Automatically preparing '+pending.length+' project images in private storage. You can continue editing while the photo library updates.';preparePhotos();}
