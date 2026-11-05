@@ -255,7 +255,9 @@ function renderPreview(){
   return '<section class="layout-item layout-text'+(item.align==='center'?' center':'')+(selectedLayoutIndex===index?' selected':'')+'" data-layout-index="'+index+'" style="'+position+'"><div class="layout-text-inner"><span class="eyebrow">'+escapeHtml(item.eyebrow||'PROJECT NOTE')+'</span>'+(item.heading?'<h3>'+escapeHtml(item.heading)+'</h3>':'')+'<p data-text-edit="'+index+'">'+escapeHtml(item.body||'Add your text here.')+'</p></div>'+layoutHandles(index)+'</section>';
  }).join('');
  var grid='<div class="editorial-grid-scroll"><div id="editorialGrid" class="editorial-grid'+(gridVisible?' with-grid':'')+'">'+blocks+'</div></div>';
- var templateId=(draftLayout&&draftLayout.template)||($('layoutTemplate')&&$('layoutTemplate').value)||'t01';\n $('preview').className='canvas template-'+(templateId==='ai-custom'?'t01':templateId);\n if(window.BrickmenTemplates&&draftLayout&&draftLayout.custom_theme)window.BrickmenTemplates.applyCustom($('preview'),draftLayout.custom_theme);
+ var templateId=(draftLayout&&draftLayout.template)||($('layoutTemplate')&&$('layoutTemplate').value)||'t01';
+ $('preview').className='canvas template-'+(templateId==='ai-custom'?'t01':templateId);
+ if(window.BrickmenTemplates&&draftLayout&&draftLayout.custom_theme)window.BrickmenTemplates.applyCustom($('preview'),draftLayout.custom_theme);
  $('preview').innerHTML=hero+'<div class="preview-body">'+intro+grid+'</div><div class="preview-end">BRICKMEN · DESIGN THAT LOOKS AHEAD</div>';
  $('projectHeading').textContent=content.title||'Project editor';
  $('toggleGrid').textContent=gridVisible?'Hide grid':'Show grid';
