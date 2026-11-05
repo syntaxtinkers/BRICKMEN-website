@@ -7,7 +7,7 @@
 <style>
 :root{--orange:#e45b2b;--ink:#171915;--muted:#777970;--line:#dedfd9;--paper:#f5f5f1;--white:#fff}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--paper);color:var(--ink);font-family:Inter,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:grid;grid-template-columns:minmax(260px,1fr) minmax(340px,500px);max-width:1440px;margin:auto;padding:clamp(24px,5vw,72px);gap:clamp(40px,8vw,120px);align-items:center}
+a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:block;width:100%;max-width:none;margin:0;padding:18px clamp(14px,2vw,32px) 64px}.intro{display:none}.card{width:100%;max-width:none;padding:clamp(16px,2vw,28px);box-shadow:none}.card h2{font-size:clamp(24px,2.4vw,34px)}#loginPanel{max-width:460px;margin:8vh auto}.status{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 14px;margin:10px 0}.status strong{margin:0}.status span{font-size:11px;text-align:right}.scan-heading{display:inline-block;margin:0 14px 0 0}.scan-copy{display:inline-block;margin:0 10px 8px 0}.scan-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.scan-tools .btn{width:auto;margin:0;padding:9px 14px}.dashboard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}.dashboard-head h2{margin-bottom:4px}.dashboard-head .sub{margin-bottom:12px}.bulk-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f5f5f1;border:1px solid var(--line);padding:12px 14px;margin:14px 0 18px}.bulk-toolbar .btn{width:auto;margin:0;padding:10px 13px}.bulk-toolbar label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700}.bulk-toolbar select{padding:10px 12px;border:1px solid var(--line);background:#fff;font:inherit;font-size:12px}.bulk-progress{font-size:12px;color:var(--muted);flex-basis:100%;line-height:1.5}.portfolio-tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:12px;align-items:start;margin-top:10px}.portfolio-project{padding:13px;min-width:0}.portfolio-project-head{margin-bottom:8px}.portfolio-project-head strong{font-size:15px}.portfolio-project-meta{font-size:10px;line-height:1.5}.portfolio-project-head .head-left{display:flex;gap:9px;align-items:flex-start;min-width:0}.portfolio-project-head .head-left input{margin-top:4px;accent-color:var(--orange)}.portfolio-project-head .head-left strong{overflow-wrap:anywhere}.portfolio-actions{gap:6px;margin-top:9px}.portfolio-actions .btn{padding:8px 10px;font-size:9px}.project-details{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.project-details.hidden{display:none}.photo-library{margin-top:10px}.photo-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}.photo-item{padding:5px}.photo-item img{aspect-ratio:5/4}.footer{position:static;text-align:center;padding:18px}@media(max-width:800px){.shell{padding:12px 10px 48px}.card{padding:14px}.status{align-items:flex-start;flex-direction:column}.status span{text-align:left}.bulk-toolbar .btn{flex:1 1 145px}.portfolio-tools{grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr))}}
 .intro{max-width:570px}.brand{font-size:32px;font-weight:750;letter-spacing:-.02em}.brand span{color:var(--orange)}.eyebrow{margin-top:76px;color:var(--muted);font-size:11px;letter-spacing:.17em;text-transform:uppercase;font-weight:700}.intro h1{font-size:clamp(42px,6.5vw,82px);line-height:.98;letter-spacing:-.065em;font-weight:520;margin:22px 0}.intro h1 span{color:var(--orange)}.intro p{max-width:470px;color:#666960;font-size:15px;line-height:1.8}.back{display:inline-block;margin-top:38px;font-size:12px;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid #bfc1b8;padding-bottom:7px}
 .card{background:var(--white);border:1px solid var(--line);padding:clamp(24px,4vw,42px);box-shadow:0 18px 60px rgba(25,27,22,.055)}.card h2{font-size:25px;letter-spacing:-.04em;margin:0 0 8px;font-weight:600}.sub{color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 28px}.field{display:grid;gap:8px;margin:17px 0}.field label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#62665c;font-weight:700}.field input{width:100%;border:1px solid #d9dbd3;background:#fff;padding:14px 13px;font-size:14px;outline:none;border-radius:0}.field input:focus{border-color:var(--orange);box-shadow:0 0 0 2px rgba(228,91,43,.1)}
 .btn{width:100%;border:1px solid var(--ink);background:var(--ink);color:#fff;padding:14px 18px;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;margin-top:9px}.btn.secondary{background:#fff;color:var(--ink)}.btn:disabled{opacity:.55;cursor:wait}.msg{display:none;margin:18px 0 0;padding:13px 14px;border-left:3px solid var(--orange);background:#fbf5f1;color:#5d4135;font-size:13px;line-height:1.6}.msg.show{display:block}.muted-note{margin:24px 0 0;color:#888b82;font-size:11px;line-height:1.65}.divider{height:1px;background:var(--line);margin:28px 0}.status{border:1px solid var(--line);padding:16px;margin:18px 0 12px}.status strong{display:block;font-size:13px;margin-bottom:5px}.status span{font-size:12px;color:var(--muted);line-height:1.6;word-break:break-word}.hidden{display:none!important}.scan-heading{font-size:18px;font-weight:650;letter-spacing:-.025em;margin:0 0 7px}.scan-copy{font-size:12px;color:var(--muted);line-height:1.7;margin:0 0 18px}.candidate-list{display:grid;gap:9px;margin-top:16px}.candidate{border:1px solid var(--line);padding:13px 14px;background:#fff}.candidate strong{display:block;font-size:13px;line-height:1.45;overflow-wrap:anywhere}.candidate small{display:block;color:var(--muted);font-size:11px;line-height:1.6;margin-top:4px;overflow-wrap:anywhere}.candidate a{display:inline-block;margin-top:8px;color:var(--orange);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}.candidate .tag{display:inline-block;margin-top:7px;margin-right:6px;padding:3px 6px;background:#f2eee9;color:#77513d;font-size:9px;letter-spacing:.06em;text-transform:uppercase}.footer{position:fixed;right:26px;bottom:20px;color:#999b93;font-size:10px;letter-spacing:.09em;text-transform:uppercase}
@@ -72,30 +72,37 @@ a{color:inherit;text-decoration:none}.shell{min-height:100vh;display:grid;grid-t
 <p class="muted-note">Access is limited to the administrator email configured for this website. There is no public sign-up.</p>
 </div>
 <div id="studioPanel" class="hidden">
-<h2>Brickmen Dashboard</h2><p class="sub">Manage your projects and website · Signed in as <strong id="signedInEmail"></strong></p>
+<div class="dashboard-head"><div><h2>Brickmen Dashboard</h2><p class="sub">Your projects, image preparation, AI page creation and publishing · Signed in as <strong id="signedInEmail"></strong></p></div><button class="btn secondary" id="logoutButtonTop" type="button" style="width:auto;margin:0">Sign out</button></div>
 <div class="status"><strong id="driveStatusTitle">Google Drive</strong><span id="driveStatusDetail">Checking connection…</span></div>
 <button class="btn" id="connectDriveButton" type="button">Connect Google Drive</button>
 <button class="btn secondary hidden" id="disconnectDriveButton" type="button">Disconnect Google Drive</button>
 <div class="msg" id="studioMessage" role="status"></div>
 <div class="divider"></div>
 <p class="muted-note">The Drive connection is read-only. This page will not move, rename, edit or delete files in Google Drive.</p>
+<div class="scan-tools">
+ <h3 class="scan-heading">Google Drive</h3>
+ <div class="status"><strong id="scanStatusTitle">Archive not scanned yet</strong><span id="scanStatusDetail">Scan your connected Drive to discover new project folders. The originals remain untouched.</span></div>
+ <button class="btn secondary" id="scanDriveButton" type="button">Scan Google Drive</button>
+ <div class="msg" id="scanMessage" role="status"></div>
+</div>
+<div id="driveCandidateList" class="candidate-list hidden" aria-hidden="true"></div>
 <div class="divider"></div>
-<h3 class="scan-heading">Drive archive inventory</h3>
-<p class="scan-copy">Index folders and file details across the connected account, including nested and archived project folders. The scan does not download, edit or move your Drive files.</p>
-<div class="status"><strong id="scanStatusTitle">Archive not scanned yet</strong><span id="scanStatusDetail">Start a read-only inventory scan to discover the project folders in your Drive.</span></div>
-<button class="btn" id="scanDriveButton" type="button">Scan Google Drive</button>
-<div class="msg" id="scanMessage" role="status"></div>
-<div id="driveCandidateList" class="candidate-list"></div>
-<p class="muted-note">Detected folders remain private and unpublished. AI categorisation and your approval will be added before portfolio publishing.</p>
-
-<div class="divider"></div>
-<h3 class="scan-heading">Portfolio projects</h3>
-<p class="scan-copy">Import detected My Drive project folders as private drafts. Edit project details here. Nothing appears publicly until photographs are selected and the project is approved.</p>
-<button class="btn" id="syncPortfolioButton" type="button">Import detected folders as drafts</button>
+<div class="dashboard-head"><div><h3 class="scan-heading">Portfolio projects</h3><p class="scan-copy">Select one, several or all projects, then run each stage of the workflow. Published projects stay live if this tab closes.</p></div><button class="btn secondary" id="syncPortfolioButton" type="button" style="width:auto;margin:0">Sync newly detected folders</button></div>
+<div class="bulk-toolbar" id="bulkToolbar">
+ <label><input type="checkbox" id="selectAllProjects"> Select all</label>
+ <span id="selectedProjectCount">0 selected</span>
+ <label for="bulkTone">AI writing style</label>
+ <select id="bulkTone"><option value="Classy">Architectural editorial</option><option value="Superhero comic">Brickmen superhero comic</option></select>
+ <button class="btn secondary" id="bulkImportButton" type="button">1 · Import all photos</button>
+ <button class="btn secondary" id="bulkAiButton" type="button">2 · AI arrange & write</button>
+ <button class="btn" id="bulkPublishButton" type="button">3 · Publish selected</button>
+ <button class="btn secondary" id="bulkRunButton" type="button">Run all 3 steps</button>
+ <div class="bulk-progress" id="bulkProgress" role="status">Choose projects to begin. Each project is processed individually and saved as it completes.</div>
+</div>
 <div class="msg" id="portfolioMessage" role="status"></div>
 <div id="portfolioProjects" class="portfolio-tools"></div>
-<p class="portfolio-hint">The next media step will add per-photograph visibility, cover selection and secure website image storage. Publishing remains locked until at least one public photograph is prepared.</p>
-<button class="btn secondary" id="logoutButton" type="button">Sign out</button>
+<p class="portfolio-hint">AI drafts are editable. Review before publishing. Hidden photographs remain private; original Google Drive files are never changed.</p>
+<button class="btn secondary hidden" id="logoutButton" type="button">Sign out</button>
 </div>
 </section>
 </main>
