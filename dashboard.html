@@ -258,40 +258,49 @@ function portfolioDate(value){
  if(!value)return '';
  var d=new Date(value);return Number.isNaN(d.getTime())?'':d.toISOString().slice(0,10);
 }
+var selectedProjectIds=new Set();
+function updateSelectedCount(){
+ var count=selectedProjectIds.size;
+ if($('selectedProjectCount'))$('selectedProjectCount').textContent=count+' selected';
+ var all=document.querySelectorAll('[data-project-check]');
+ var checked=document.querySelectorAll('[data-project-check]:checked');
+ if($('selectAllProjects'))$('selectAllProjects').checked=all.length>0&&checked.length===all.length;
+}
 function renderPortfolioProjects(projects){
  var host=$('portfolioProjects');if(!host)return;host.textContent='';
  if(!Array.isArray(projects)||!projects.length){
-  var empty=document.createElement('p');empty.className='muted-note';empty.textContent='No portfolio drafts yet. Import the detected Drive folders to create them.';host.appendChild(empty);return;
+  var empty=document.createElement('p');empty.className='muted-note';empty.textContent='No portfolio projects yet. Scan Google Drive or sync newly detected folders to add projects.';host.appendChild(empty);selectedProjectIds.clear();updateSelectedCount();return;
  }
  projects.forEach(function(p){
   var status=p.is_published?'Published':(p.review_status==='rejected'?'Rejected':'Private draft');
+  var isSelected=selectedProjectIds.has(p.id);
   var html='<article class="portfolio-project" data-project-card="'+portfolioEsc(p.id)+'">'+
-   '<div class="portfolio-project-head"><div><strong>'+portfolioEsc(p.title||'Untitled project')+'</strong>'+
-   '<div class="portfolio-project-meta">'+portfolioEsc(p.folder_path||p.drive_folder_id||'')+'<br>Created from Drive · '+Number(p.media_count||0)+' photos indexed · '+Number(p.public_media_count||0)+' public photos<br><a href="https://drive.google.com/drive/folders/'+encodeURIComponent(p.drive_folder_id)+'" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Open source folder ↗</a></div></div>'+
-   '<div><span class="portfolio-badge">'+status+'</span>'+(p.is_archived?'<span class="portfolio-badge">Archived</span>':'')+'</div></div>'+
-   '<form class="portfolio-form" data-project-form>'+
+   '<div class="portfolio-project-head"><div class="head-left"><input type="checkbox" data-project-check aria-label="Select '+portfolioEsc(p.title||'project')+'" '+(isSelected?'checked':'')+'><div><strong>'+portfolioEsc(p.title||'Untitled project')+'</strong>'+
+   '<div class="portfolio-project-meta">'+portfolioEsc(p.location||p.folder_path||'')+'<br>'+Number(p.media_count||0)+' photos · '+Number(p.public_media_count||0)+' public'+(p.is_archived?' · Archived':'')+'</div></div></div>'+
+   '<div><span class="portfolio-badge">'+status+'</span></div></div>'+
+   '<div class="portfolio-actions">'+
+   '<button class="btn" type="button" data-project-action="editor">Open editor ↗</button>'+
+   '<button class="btn secondary" type="button" data-project-action="photos">Photos</button>'+
+   '<button class="btn secondary" type="button" data-project-action="details">Details</button>'+
+   (p.is_published?'<button class="btn secondary" type="button" data-project-action="unpublish">Unpublish</button>':'<button class="btn secondary" type="button" data-project-action="publish">Publish</button>')+
+   '<button class="btn secondary" type="button" data-project-action="delete">Delete</button>'+
+   '</div>'+
+   '<form class="portfolio-form project-details hidden" data-project-form>'+
    '<div class="portfolio-field"><label>Project title</label><input name="title" maxlength="180" required value="'+portfolioEsc(p.title)+'"></div>'+
    '<div class="portfolio-field"><label>Location</label><input name="location" maxlength="240" value="'+portfolioEsc(p.location)+'"></div>'+
    '<div class="portfolio-field"><label>Category</label><input name="category" maxlength="240" value="'+portfolioEsc(p.category)+'" placeholder="Residential, Interior, Commercial…"></div>'+
    '<div class="portfolio-field"><label>Project year</label><input name="project_year" type="number" min="1900" max="2200" value="'+portfolioEsc(p.project_year||'')+'"></div>'+
    '<div class="portfolio-field"><label>Start date</label><input name="start_date" type="date" value="'+portfolioDate(p.start_date)+'"></div>'+
    '<div class="portfolio-field full"><label>Project description</label><textarea name="description" maxlength="12000" placeholder="The approved project narrative will appear here.">'+portfolioEsc(p.description)+'</textarea></div>'+
-   '<div class="portfolio-field full"><label>Public visibility — choose the project details visitors can see</label><div class="portfolio-visibility">'+
+   '<div class="portfolio-field full"><label>Public visibility</label><div class="portfolio-visibility">'+
    ['title','location','category','project_year','start_date','description'].map(function(field){var checked=!p.visibility||p.visibility[field]!==false;return '<label><input type="checkbox" name="show_'+field+'" '+(checked?'checked':'')+'> '+field.replace('_',' ')+'</label>';}).join('')+
    '</div></div>'+
-   '<div class="portfolio-field full"><div class="portfolio-actions">'+
-   '<button class="btn" type="button" data-project-action="editor">Open page editor ↗</button>'+
-   '<button class="btn secondary" type="button" data-project-action="delete">Delete project</button>'+
-   '<button class="btn secondary" type="button" data-project-action="photos">Choose photos / edit images</button>'+
-   '<button class="btn secondary" type="button" data-project-action="save">Save draft</button>'+
-   (p.is_published?'<button class="btn secondary" type="button" data-project-action="unpublish">Unpublish</button>':'<button class="btn" type="button" data-project-action="publish" '+(Number(p.media_count||0)>0?'':'disabled title="Open the page editor and prepare photographs first"')+'>Approve & publish</button>')+
-   (p.review_status!=='rejected'?'<button class="btn secondary" type="button" data-project-action="reject">Reject</button>':'')+
-   '</div><p class="portfolio-hint">'+(Number(p.public_media_count||0)>0?'Public photographs are ready for publication.':'Photo selection and secure image preparation are the next step; publication is disabled until then.')+'</p></div>'+
-   '</form><section class="photo-library" data-photo-library><div class="photo-library-head"><strong>Project photo library</strong><span class="portfolio-badge" data-photo-count>Not loaded</span></div><p class="photo-note">Browse photographs in this Drive folder and its nested folders. Import selected images into private Studio storage; your original Drive files remain untouched.</p><div class="photo-grid" data-photo-grid></div></section></article>';
+   '<div class="portfolio-field full"><div class="portfolio-actions"><button class="btn" type="button" data-project-action="save">Save details</button></div></div>'+
+   '</form><section class="photo-library" data-photo-library><div class="photo-library-head"><strong>Project photo library</strong><span class="portfolio-badge" data-photo-count>Not loaded</span></div><p class="photo-note">Import photographs into private Studio storage. Original Drive files are never changed.</p><div class="photo-grid" data-photo-grid></div></section></article>';
   host.insertAdjacentHTML('beforeend',html);
  });
+ updateSelectedCount();
 }
-
 async function loadProjectPhotos(card){
  var panel=card.querySelector('[data-photo-library]'),grid=card.querySelector('[data-photo-grid]'),count=card.querySelector('[data-photo-count]');
  panel.classList.add('open');grid.textContent='Loading photographs…';count.textContent='Loading';
