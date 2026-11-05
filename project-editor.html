@@ -256,7 +256,7 @@ function renderPreview(){
  }).join('');
  var grid='<div class="editorial-grid-scroll"><div id="editorialGrid" class="editorial-grid'+(gridVisible?' with-grid':'')+'">'+blocks+'</div></div>';
  var templateId=(draftLayout&&draftLayout.template)||($('layoutTemplate')&&$('layoutTemplate').value)||'t01';
- $('preview').className='canvas template-'+(templateId==='ai-custom'?'t01':templateId);
+ $('preview').className='canvas template-'+((templateId==='ai-custom'||templateId==='custom')?'t01':templateId);
  if(window.BrickmenTemplates&&draftLayout&&draftLayout.custom_theme)window.BrickmenTemplates.applyCustom($('preview'),draftLayout.custom_theme);
  $('preview').innerHTML=hero+'<div class="preview-body">'+intro+grid+'</div><div class="preview-end">BRICKMEN · DESIGN THAT LOOKS AHEAD</div>';
  $('projectHeading').textContent=content.title||'Project editor';
