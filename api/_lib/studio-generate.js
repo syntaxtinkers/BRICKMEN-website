@@ -41,7 +41,7 @@ module.exports=async function generateProject(req,res){
   const comic=tone.toLowerCase().includes('superhero')||tone.toLowerCase().includes('comic');
   const voice=comic?'Write a sophisticated, witty fictional Brickmen superhero comic feature. The team uses imaginative superpowers of light, space, structure, landscape and craft. Clearly label it as creative brand storytelling, never factual project history.':'Write like a leading architectural journalist for an internationally respected architecture magazine: perceptive, literate, specific, confident and critically observant. Avoid marketing fluff, generic praise, repetitive captions and AI-sounding phrases. Explain the architectural idea through the visible evidence.';
   const templateRows=await db('brickmen_project_layouts?select=project_id,draft_layout');
-  const occupied=new Set((Array.isArray(templateRows)?templateRows:[]).filter(x=>x.project_id!==projectId&&x.draft_layout).map(x=>x.draft_layout.template).filter(x=>/^t(0[1-9]|[1-3][0-9]|40)$/.test(x)));
+  const occupied=new Set((Array.isArray(templateRows)?templateRows:[]).filter(x=>x.project_id!==projectId&&x.draft_layout).map(x=>({editorial:'t01',minimal:'t04',gallery:'t03'}[x.draft_layout.template]||x.draft_layout.template)).filter(x=>/^t(0[1-9]|[1-3][0-9]|40)$/.test(x)));
   let assigned=requestedTemplate;
   if(requestedTemplate==='ai-custom')assigned='custom';
   else if(!/^t(0[1-9]|[1-3][0-9]|40)$/.test(requestedTemplate)||occupied.has(requestedTemplate)){
