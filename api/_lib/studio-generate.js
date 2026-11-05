@@ -23,7 +23,11 @@ module.exports = async function generateProject(req, res) {
   const images = visibleMedia.slice(0, 8);
   if (!images.length) return sendJson(res, 409, { error: 'Prepare at least one visible project photograph before arranging the page.' });
   const fileList = images.map(x => x.file_name);
-  const instructions = `Create a distinctive architecture portfolio page for Brickmen in a ${tone} tone. This is a visual editorial, not a photo gallery. Return ONLY valid JSON with keys: title, category, description, visual_direction, photo_captions, sections.
+  const superheroTone = tone.toLowerCase().includes('superhero') || tone.toLowerCase().includes('comic');
+  const toneGuidance = superheroTone
+   ? `Write as a playful Brickmen superhero comic-strip story. Brickmen is the heroic building team; architectural skills become imaginative superpowers (light, space, structure, landscape, craft). Use comic-panel style eyebrow labels such as THE CALL, THE POWER, THE TRANSFORMATION, THE REVEAL, but make each project’s story unique. Energetic and witty, yet sophisticated. Never invent real events, clients, awards, technical achievements or construction facts. The superhero framing is clearly a creative brand-story device, not a factual claim.`
+   : `Write in a refined architectural editorial voice. Build a clear design concept from visible spatial relationships, courtyard/landscape connections, light, massing, thresholds, material appearance and atmosphere. It is acceptable to write in Brickmen’s first-person plural as a proposed design narrative (for example, “We shape a breathable threshold between the interior and the planted court”), but frame inferred intent as an architectural reading, not a verified brief. Avoid generic filler.`;
+  const instructions = `Create a distinctive architecture portfolio page for Brickmen. ${toneGuidance} This is a visual editorial, not a photo gallery. Return ONLY valid JSON with keys: title, category, description, visual_direction, photo_captions, sections.
 
 Project reference seed: ${projectId.slice(-8)}. Use this seed to make the design rhythm and image sequence specific to THIS project. Do not use the same generic pattern for every project.
 
@@ -32,14 +36,14 @@ Known metadata (treat as facts only when populated): title=${JSON.stringify(proj
 Available image filenames (use exact spelling in sections): ${JSON.stringify(fileList)}. You will receive visual samples for up to eight of these photographs. Do not claim to have seen photographs that were not included as image inputs.
 
 Writing requirements:
-- description: a grounded opening project note of roughly 55-85 words, natural and specific to the visual evidence.
-- sections: an ordered sequence of 6-12 blocks, mixing 3-4 text blocks with image blocks. Each text block must have type='text', a short eyebrow, an optional short heading, and a 25-55 word body. Add meaningful editorial context, but do not repeat the opening description or reuse generic filler.
+- description: a distinctive opening project concept of roughly 65-100 words, grounded in the supplied images. Describe the architectural idea, not just the objects visible.
+- sections: an ordered sequence of 6-12 blocks, mixing 3-4 text blocks with image blocks. Each text block must have type='text', a short eyebrow, an optional short heading, and a 30-65 word body. Derive a project concept from what the photographs collectively reveal; describe how spatial moments connect, and make the prose specific to this project. Add meaningful editorial context, but do not repeat the opening description or reuse generic filler.
 - Each image block must have type='image', file_name matching exactly one filename above, width ('wide','medium','narrow'), align ('left','center','right'), aspect ('landscape','portrait','natural'), and an optional concise factual caption. Choose image order and varied scale intentionally.
 - Aim for an opening text passage, images separated by further short text passages, and a quieter closing passage. Do not place every image consecutively.
 - photo_captions: an array of {file_name,caption,alt_text} for the photographs you actually analysed.
 - visual_direction: include palette (3-5 restrained color names), layout_notes, and composition ('asymmetric','alternating','centered','offset','quiet').
 
-Architecture accuracy rules: Study only what is visible in the supplied photographs: spatial qualities, apparent materials/surfaces, light, composition, planting and landscape. Never invent a client, architect, exact location, building use, dimensions, construction methods, material brands, sustainability claims, awards, dates or design intent. Describe uncertain details cautiously. Do not identify people. Never infer an unseen brief. Captions and alt text must be factual and accessible. Return valid JSON only.`;
+Architecture accuracy rules: Study the supplied photographs carefully: spatial qualities, apparent materials/surfaces, light, composition, planting, landscape, courtyards, thresholds and relationships between interior and exterior. You may derive an imaginative architectural concept from these visual clues, but do not present an inferred concept as verified client intent. Never invent a client, architect, exact location, building use, dimensions, construction methods, material brands, sustainability claims, awards or dates. Describe uncertain details cautiously. Do not identify people. Captions and alt text must be factual and accessible. Return valid JSON only.`;
   const input = [{ type: 'input_text', text: instructions }];
   let analyzed = 0, skipped = 0;
   for (const item of images) {
