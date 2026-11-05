@@ -334,6 +334,72 @@ async function handlePhotoAction(button){
  }catch(err){showMessage('portfolioMessage',err.message);button.disabled=false;}
 }
 
+function readSelectedProjectIds(){
+ document.querySelectorAll('[data-project-check]').forEach(function(input){
+  var id=input.closest('[data-project-card]').dataset.projectCard;
+  if(input.checked)selectedProjectIds.add(id);else selectedProjectIds.delete(id);
+ });
+ return Array.from(selectedProjectIds);
+}
+function setBulkBusy(busy){
+ ['bulkImportButton','bulkAiButton','bulkPublishButton','bulkRunButton','selectAllProjects','bulkTone'].forEach(function(id){if($(id))$(id).disabled=busy;});
+}
+function setBulkProgress(text){if($('bulkProgress'))$('bulkProgress').textContent=text;}
+async function importAllProjectPhotos(projectId){
+ var mediaResult=await apiRequest('/api/studio/projects?resource=media&projectId='+encodeURIComponent(projectId));
+ var pending=(mediaResult.photos||[]).filter(function(photo){return !photo.selected;});
+ var imported=0,skipped=0;
+ for(var i=0;i<pending.length;i+=3){
+  var batch=pending.slice(i,i+3).map(function(photo){return photo.drive_file_id;});
+  var result=await apiRequest('/api/studio/projects','POST',{action:'import_batch',projectId:projectId,fileIds:batch});
+  (result.imported||[]).forEach(function(item){if(item.skipped)skipped++;else imported++;});
+  setBulkProgress('Importing photographs… '+Math.min(i+3,pending.length)+' / '+pending.length+' in this project');
+ }
+ return {imported:imported,skipped:skipped,already:pending.length===0};
+}
+async function runBulkStage(stage){
+ var ids=readSelectedProjectIds();
+ if(!ids.length){showMessage('portfolioMessage','Select at least one project first.');return;}
+ if(stage==='run'&&!window.confirm('Run the complete workflow for '+ids.length+' selected projects? Each project will be imported, AI-arranged and published one at a time.'))return;
+ if(stage==='publish'&&!window.confirm('Publish '+ids.length+' selected projects? Each successful publication goes live immediately and remains live even if this tab is closed.'))return;
+ if(stage==='ai'&&!window.confirm('Generate fresh AI page layouts and stories for '+ids.length+' selected projects? Existing AI drafts will be replaced, but already-published pages will not change until you publish again.'))return;
+ if(stage==='import'&&!window.confirm('Import all available photographs for '+ids.length+' selected projects into private Studio storage? Original Drive files will not be changed.'))return;
+ setBulkBusy(true);clearMessage('portfolioMessage');
+ var tone=$('bulkTone').value||'Classy',done=0,failed=[];
+ try{
+  for(var index=0;index<ids.length;index++){
+   var id=ids[index],card=document.querySelector('[data-project-card="'+id+'"]');
+   var title=card?card.querySelector('.portfolio-project-head strong').textContent:'Project '+(index+1);
+   setBulkProgress((index+1)+' / '+ids.length+' · '+title+' · '+(stage==='run'?'Importing photos':stage==='import'?'Importing photos':stage==='ai'?'AI arranging & writing':'Publishing'));
+   try{
+    if(stage==='import'||stage==='run'){
+     var imp=await importAllProjectPhotos(id);
+     if(stage==='import'){done++;setBulkProgress((index+1)+' / '+ids.length+' · '+title+' · '+imp.imported+' imported'+(imp.skipped?' · '+imp.skipped+' skipped':'')+'.');}
+    }
+    if(stage==='ai'||stage==='run'){
+     await apiRequest('/api/studio/projects','POST',{action:'generate_ai',projectId:id,tone:tone});
+     if(stage==='ai'){done++;setBulkProgress((index+1)+' / '+ids.length+' · '+title+' · AI layout and story saved.');}
+    }
+    if(stage==='publish'||stage==='run'){
+     await apiRequest('/api/studio/projects','POST',{action:'publish',projectId:id});
+     if(stage==='publish')done++;
+     setBulkProgress((index+1)+' / '+ids.length+' · '+title+' · Published and live.');
+    }
+    if(stage==='run')done++;
+   }catch(err){
+    failed.push(title+': '+err.message);
+    setBulkProgress((index+1)+' / '+ids.length+' · '+title+' · FAILED: '+err.message+' · Continuing with the next project.');
+   }
+   await refreshPortfolioProjects();
+  }
+  var summary=done+' project operation(s) completed.'+(failed.length?' '+failed.length+' project(s) need attention.':' All selected projects completed.');
+  setBulkProgress(summary+(failed.length?' '+failed.join(' | '):''));
+  showMessage('portfolioMessage',summary+(failed.length?' Open the affected project cards and retry the failed step.':''));
+ }finally{
+  setBulkBusy(false);
+  updateSelectedCount();
+ }
+}
 async function refreshPortfolioProjects(){
  try{var result=await apiRequest('/api/studio/projects');renderPortfolioProjects(result.projects||[]);}
  catch(err){if($('portfolioProjects'))showMessage('portfolioMessage',err.message);}
@@ -349,6 +415,18 @@ async function syncPortfolioCandidates(){
  finally{setBusy(button,false,'Import detected folders as drafts');}
 }
 $('syncPortfolioButton')?.addEventListener('click',syncPortfolioCandidates);
+$('portfolioProjects')?.addEventListener('change',function(event){
+ if(event.target.matches('[data-project-check]')){readSelectedProjectIds();updateSelectedCount();}
+});
+$('selectAllProjects')?.addEventListener('change',function(){
+ document.querySelectorAll('[data-project-check]').forEach(function(input){input.checked=$('selectAllProjects').checked;});
+ readSelectedProjectIds();updateSelectedCount();
+});
+$('bulkImportButton')?.addEventListener('click',function(){runBulkStage('import');});
+$('bulkAiButton')?.addEventListener('click',function(){runBulkStage('ai');});
+$('bulkPublishButton')?.addEventListener('click',function(){runBulkStage('publish');});
+$('bulkRunButton')?.addEventListener('click',function(){runBulkStage('run');});
+$('logoutButtonTop')?.addEventListener('click',function(){$('logoutButton').click();});
 $('portfolioProjects')?.addEventListener('click',async function(event){
  var photoButton=event.target.closest('[data-photo-action]');if(photoButton){await handlePhotoAction(photoButton);return;}
  var button=event.target.closest('[data-project-action]');if(!button)return;
@@ -356,6 +434,7 @@ $('portfolioProjects')?.addEventListener('click',async function(event){
  var card=button.closest('[data-project-card]');var form=card&&card.querySelector('[data-project-form]');if(!card||!form)return;
  var projectId=card.dataset.projectCard,action=button.dataset.projectAction;
   if(action==='editor'){location.href='/project-editor.html?id='+encodeURIComponent(projectId);return;}
+  if(action==='details'){form.classList.toggle('hidden');return;}
   if(action==='delete'&&!window.confirm('Delete this project from the Brickmen website? Its original Google Drive folder and files will remain untouched.'))return;
  button.disabled=true;
  try{
