@@ -44,7 +44,7 @@
 .picker-tab.active{background:#fff;color:#1d5fb9;box-shadow:0 1px 4px rgba(17,35,58,.12)}
 .picker-instruction{font-size:10px;color:#647087;flex:1;min-width:180px}
 .picker-search{width:min(280px,100%);border:1px solid #d8dee8;border-radius:6px;padding:9px 11px;font-size:11px;outline:none}
-.photo-picker-grid{padding:20px 24px 34px;display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:16px;overflow:auto;align-content:start;flex:1}
+.photo-picker-grid{padding:20px 24px 34px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;overflow:auto;align-content:start;flex:1}
 .photo-tile{min-width:0;border:2px solid transparent;border-radius:8px;background:#fff;box-shadow:0 1px 4px rgba(18,32,52,.08);padding:7px;cursor:pointer;transition:border-color .12s,box-shadow .12s,background .12s;position:relative}
 .photo-tile:hover{box-shadow:0 5px 16px rgba(18,32,52,.13)}
 .photo-tile.is-selected{border-color:#2376e8;background:#f2f7ff;box-shadow:0 0 0 2px rgba(35,118,232,.13)}
@@ -130,7 +130,7 @@
   <div class="photo-picker-title"><div class="eyebrow">BRICKMEN STUDIO / PROJECT FOLDER</div><h2 id="photoPickerTitle">Select project photographs</h2></div>
   <div class="photo-picker-actions">
    <span class="picker-count" id="pickerSelectionCount">0 selected</span>
-   <button class="btn danger" id="moveToTrash" type="button">Move selected to Trash</button>
+   <button class="btn danger" id="moveToTrash" type="button">Delete selected → Trash</button>
    <button class="btn light" id="restoreFromTrash" type="button" style="display:none">Restore selected</button>
    <button class="btn blue" id="closePhotoPicker" type="button">Done</button>
   </div>
@@ -260,7 +260,7 @@ function renderPickerSummary(){
  $('trashFolderTab').classList.toggle('active',photoPickerTab==='trash');
  $('pickerInstruction').textContent=photoPickerTab==='trash'
   ?'This is Studio Trash. Select photographs and restore them to the project folder.'
-  :'Click a thumbnail to select or deselect it. Blue outlines mark photographs selected for this project page.';
+  :'Click thumbnails to select or deselect them. Press Delete to move the blue-outlined photos into this website’s Trash.';
 }
 function loadPickerImage(img){
  var id=img&&img.dataset.previewId;if(!id||img.dataset.loading==='1'||img.dataset.loaded==='1')return;
