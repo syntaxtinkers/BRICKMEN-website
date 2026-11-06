@@ -362,7 +362,7 @@ module.exports = async function generateProject(req, res) {
     const marginColumns = assigned === 'custom' ? customTheme.margin_columns : presetMargin(assigned);
     const contentX = marginColumns + 1;
     const contentWidth = 48 - marginColumns * 2;
-    const textWidth = Math.max(18, Math.round(contentWidth * 0.52));
+    const textWidth = Math.max(18, Math.round(contentWidth * 0.5));
     const orientationById = new Map(observations.map(item => [item.media_id, item.orientation]));
     const elements = [];
     let y = 2;
