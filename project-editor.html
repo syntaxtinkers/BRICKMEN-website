@@ -459,7 +459,7 @@ async function moveSelectedPhotosToTrash(){
  if(!chosen.length)return;
  if(!confirm('Move '+chosen.length+' selected photograph(s) into Studio Trash? This only changes the website photo library. Google Drive files and folders will not be moved or deleted.'))return;
  chosen.forEach(function(photo){var state=photoState(photo);state.previousSelected=!!state.selected;state.selected=false;state.trashed=true;photo.selected=false;});
- orderedPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});
+ orderedPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});draftLayout.heroMediaId=orderedPhotos()[0]&&orderedPhotos()[0].media?orderedPhotos()[0].media.id:null;
  try{
   await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
   message(chosen.length+' photograph(s) moved to Studio Trash. The original Google Drive folder is unchanged.');
@@ -469,7 +469,7 @@ async function restoreSelectedPhotos(){
  var chosen=photos.filter(function(photo){return photoState(photo).trashed&&trashActionSelection[photo.drive_file_id];});
  if(!chosen.length)return;
  chosen.forEach(function(photo){var state=photoState(photo);state.trashed=false;state.selected=!!state.previousSelected;state.previousSelected=false;photo.selected=state.selected;});
- orderedPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});
+ orderedPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});draftLayout.heroMediaId=orderedPhotos()[0]&&orderedPhotos()[0].media?orderedPhotos()[0].media.id:null;
  trashActionSelection={};
  try{
   await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
@@ -498,7 +498,7 @@ function fallbackElements(visible){
 }
 function renderPreview(){
  if(!project)return;
- var content=currentContent(),visible=orderedPhotos(),cover=visible.find(function(p){return p.media&&p.media.is_cover;})||visible[0];
+ var content=currentContent(),visible=orderedPhotos(),cover=visible.find(function(p){return p.media&&draftLayout&&draftLayout.heroMediaId===p.media.id;})||visible[0];
  var hero='<div class="preview-hero"><div class="preview-hero-image">'+(cover&&blobFor(cover.drive_file_id)?'<img style="'+imageStyle(cover)+'" src="'+blobFor(cover.drive_file_id)+'" alt="">':'')+'</div><div class="preview-title"><div class="eyebrow">BRICKMEN / PROJECT</div><h1>'+escapeHtml(content.title||'Untitled project')+'</h1><p>'+escapeHtml([content.location,content.category,content.project_year].filter(Boolean).join(' · '))+'</p></div></div>';
  var description=content.description||'Your project description will appear here after you add it in the editor.';
  var intro='<div class="preview-intro"><div class="eyebrow">PROJECT NOTE</div><p>'+escapeHtml(description)+'</p></div>';
@@ -735,12 +735,12 @@ $('photoPickerGrid').addEventListener('drop',function(event){
  if(reorderSelectedPhotos(fromId,targetId))return;
 });
 $('photoPickerGrid').addEventListener('dragend',function(event){
- draggedPhotoId=null;
+ draggedPhotoId=null;suppressTileClickId=null;
  Array.prototype.forEach.call($('photoPickerGrid').querySelectorAll('.is-dragging,.drop-target'),function(node){node.classList.remove('is-dragging','drop-target');});
 });
 $('photoPickerGrid').addEventListener('click',async function(event){
  var setCover=event.target.closest('[data-tile-cover]');
- if(setCover){var coverPhoto=photos.find(function(p){return p.drive_file_id===setCover.dataset.tileCover;});if(coverPhoto&&coverPhoto.media){try{await updateMedia(coverPhoto.media.id,{is_cover:true});draftLayout.heroMediaId=coverPhoto.media.id;await persistPhotoLibraryState();await loadPhotos();message('Cover photograph updated for the project draft.');}catch(error){message(error.message);}}return;}
+ if(setCover){var coverPhoto=photos.find(function(p){return p.drive_file_id===setCover.dataset.tileCover;});if(coverPhoto&&coverPhoto.media){try{var coverOrder=orderedPhotos().filter(function(p){return p.drive_file_id!==coverPhoto.drive_file_id;});coverOrder.unshift(coverPhoto);coverOrder.forEach(function(p,index){photoState(p).order=index+1;});await updateMedia(coverPhoto.media.id,{is_cover:true});draftLayout.heroMediaId=coverPhoto.media.id;await persistPhotoLibraryState();await loadPhotos();message('Cover photograph updated and moved to the first position.');}catch(error){message(error.message);}}return;}
  var adjust=event.target.closest('[data-tile-adjust]');
  if(adjust){
   var selectedPhoto=photos.find(function(p){return p.drive_file_id===adjust.dataset.tileAdjust;});
