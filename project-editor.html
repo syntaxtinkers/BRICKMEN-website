@@ -144,7 +144,7 @@
   <input class="picker-search" id="photoPickerSearch" type="search" placeholder="Search photographs…">
  </div>
  <div class="photo-picker-grid" id="photoPickerGrid"></div>
- <div class="photo-picker-footer">Website-only photo organisation. Moving a photograph to Trash does not move, rename or delete anything in the original Google Drive folder.</div>
+ <div class="photo-picker-footer">Website-only photo organisation. Selection and Trash are saved with this project. Moving a photograph to Trash does not move, rename or delete anything in the original Google Drive folder.</div>
 </section>
 
 <script src="/template-library.js"></script>
@@ -691,7 +691,7 @@ async function init(){
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
   $('layoutTemplate').value=draftLayout.template==='custom'?'ai-custom':(draftLayout.template||'t01');
   await loadPhotos();
-  $('photoHint').textContent='Open Select images to browse large thumbnails. Blue outlines mark photos selected for this page. Use Prepare selected photos to import the chosen images privately. Studio Trash never changes Google Drive.';
+  $('photoHint').textContent='Open Select images to browse large thumbnails. Blue outlines mark photos selected for this page. Selection and Studio Trash save automatically with this project. Use Prepare selected photos to import the chosen images privately. Original Google Drive files never move or delete.';
   if(project.is_published)$('status').textContent='Published project · photo choices and edits remain editable here until you republish';
  }catch(error){message(error.message);$('status').textContent='Unable to load this project.';}
 }
