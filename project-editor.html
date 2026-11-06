@@ -316,8 +316,7 @@ function renderPhotoPicker(){
   tile.appendChild(thumb);tile.appendChild(name);tile.appendChild(meta);
   if(photo.media&&!state.trashed&&photoPickerTab==='main'){
    var tools=document.createElement('div');tools.className='photo-tile-tools';
-   var adjust=document.createElement('button');adjust.type='button';adjust.textContent='Adjust image';adjust.dataset.tileAdjust=photo.drive_file_id;
-   tools.appendChild(adjust);tile.appendChild(tools);
+   var cover=document.createElement('button');cover.type='button';cover.textContent=photo.media.is_cover?'Cover image':'Set as cover';cover.dataset.tileCover=photo.drive_file_id;tools.appendChild(cover);\n   var adjust=document.createElement('button');adjust.type='button';adjust.textContent='Adjust image';adjust.dataset.tileAdjust=photo.drive_file_id;\n   tools.appendChild(adjust);tile.appendChild(tools);
   }
   grid.appendChild(tile);
  });
@@ -387,6 +386,7 @@ async function openPhotoPicker(){
  photoPickerTab='main';trashActionSelection={};$('photoPickerSearch').value='';
  $('photoPickerTitle').textContent=(project&&project.title?project.title+' · ':'')+'Project photographs';
  renderPhotoPicker();
+ $('closePhotoPicker').focus();
 }
 function closePhotoPicker(){
  $('photoPicker').classList.remove('open');$('photoPicker').setAttribute('aria-hidden','true');
@@ -653,8 +653,7 @@ $('moveToTrash').addEventListener('click',moveSelectedPhotosToTrash);
 $('restoreFromTrash').addEventListener('click',restoreSelectedPhotos);
 $('photoPickerSearch').addEventListener('input',renderPhotoPicker);
 $('photoPickerGrid').addEventListener('click',async function(event){
- var adjust=event.target.closest('[data-tile-adjust]');
- if(adjust){
+ var setCover=event.target.closest('[data-tile-cover]');\n if(setCover){var coverPhoto=photos.find(function(p){return p.drive_file_id===setCover.dataset.tileCover;});if(coverPhoto&&coverPhoto.media){try{await updateMedia(coverPhoto.media.id,{is_cover:true});await loadPhotos();message('Cover photograph updated for the project draft.');}catch(error){message(error.message);}}return;}\n var adjust=event.target.closest('[data-tile-adjust]');\n if(adjust){
   var selectedPhoto=photos.find(function(p){return p.drive_file_id===adjust.dataset.tileAdjust;});
   closePhotoPicker();if(selectedPhoto)openAdjustments(selectedPhoto);return;
  }
