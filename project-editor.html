@@ -71,6 +71,15 @@
 .photo-tile.drop-target{outline:3px dashed #2376e8;outline-offset:-3px}
 .photo-picker-grid{grid-auto-flow:row dense}
 
+
+/* Strict magazine page width + intrinsic photograph height */
+.canvas{width:100%!important;max-width:none!important}
+.preview-body{padding:clamp(10px,1.2vw,20px)!important}
+.editorial-grid-scroll{width:100%!important;padding:14px 0 55px!important;overflow:visible!important;container-type:inline-size}
+.editorial-grid{width:var(--bm-page-width,94%)!important;max-width:none!important;margin-inline:auto!important;grid-auto-rows:minmax(19px,auto)!important}
+.layout-image{align-self:start!important;overflow:visible!important}
+.layout-image img{display:block!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;object-fit:contain!important}
+
 </style>
 </head>
 <body>
