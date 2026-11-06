@@ -256,7 +256,7 @@ module.exports = async function generateProject(req, res) {
     const existingLayouts = await db('brickmen_project_layouts?select=project_id,draft_layout');
     const occupied = new Set((Array.isArray(existingLayouts) ? existingLayouts : [])
       .filter(row => row.project_id !== projectId && row.draft_layout)
-      .map(row => ({ editorial: 't01', minimal: 't04', gallery: 't03' }[row.draft_layout.template] || row.draft_layout.template)
+      .map(row => ({ editorial: 't01', minimal: 't04', gallery: 't03' }[row.draft_layout.template] || row.draft_layout.template))
       .filter(template => /^t(0[1-9]|[1-3][0-9]|40)$/.test(template));
 
     let assigned = requestedTemplate;
