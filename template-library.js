@@ -24,6 +24,14 @@ else out+=id+' .layout-text,'+id+' .editorial-text{padding-top:42px;padding-bott
 out+=id+' .preview-intro,'+id+' .editorial-intro{border-top:1px solid var(--bm-accent);padding-top:36px;}'+id+' .preview-end,'+id+' .end{background:var(--bm-paper);color:var(--bm-accent);}';
 out+=id+' .preview-hero,'+id+' .hero{display:flex!important;flex-direction:column!important;grid-template-columns:1fr!important;max-width:1600px!important;width:var(--bm-page-width,92%)!important;min-height:0!important;height:auto!important;margin:0 auto!important;overflow:visible!important;background:var(--bm-paper)!important;color:var(--bm-ink)!important;}';
 out+=id+' .editorial-layout,'+id+' .editorial-grid{width:100%!important;max-width:1600px!important;}';
+out+=id+' .editorial-layout{width:var(--bm-page-width,94%)!important;max-width:none!important;margin-inline:auto!important;grid-auto-rows:minmax(19px,auto)!important;}';
+out+=id+' .editorial-grid{width:var(--bm-page-width,94%)!important;max-width:none!important;margin-inline:auto!important;grid-auto-rows:minmax(19px,auto)!important;}';
+out+=id+' .editorial-image img,'+id+' .layout-image img{display:block!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;object-fit:contain!important;}';
+out+=id+' .editorial-image,'+id+' .layout-image{align-self:start!important;overflow:visible!important;}';
+out+=id+' .gallery{display:flex!important;flex-direction:column!important;gap:clamp(12px,2vw,30px)!important;width:var(--bm-page-width,94%)!important;max-width:none!important;margin:0 auto!important;padding:0!important;}';
+out+=id+' .gallery figure{width:100%!important;margin:0!important;}';
+out+=id+' .gallery img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;aspect-ratio:auto!important;object-fit:contain!important;}';
+
 out+=id+' .preview-title,'+id+' .hero-copy{order:0!important;position:relative!important;inset:auto!important;grid-column:1/-1!important;grid-row:auto!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;min-height:0!important;height:auto!important;margin:0!important;padding:clamp(24px,4vw,52px)!important;border:0!important;background:var(--bm-paper)!important;color:var(--bm-ink)!important;}';
 out+=id+' .preview-title .eyebrow,'+id+' .preview-title p,'+id+' .hero-copy .eyebrow,'+id+' .hero-copy .meta{color:var(--bm-ink)!important;}';
 out+=id+' .preview-hero-image,'+id+' .hero-media{order:1!important;position:relative!important;inset:auto!important;grid-column:1/-1!important;grid-row:auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;margin:0!important;padding:0!important;}';
