@@ -572,9 +572,10 @@ function addImageBlock(photo){
 }
 function addTextBlock(){
  var items=draftLayout&&Array.isArray(draftLayout.elements)?draftLayout.elements:[];
+ var margin=Number(draftLayout&&draftLayout.margin_columns)||2,x=margin+1,contentWidth=48-margin*2,w=Math.max(18,Math.round(contentWidth*.5));
  var bottom=4;items.forEach(function(item){bottom=Math.max(bottom,(Number(item.y)||1)+(Number(item.h)||8));});
- items.push({type:'text',eyebrow:'PROJECT NOTE',heading:'',body:'Add your project text here. Double-click or click inside this paragraph to edit it.',x:4,y:bottom+6,w:34,h:9,align:'left'});
- draftLayout.elements=items;selectedLayoutIndex=items.length-1;renderPreview();message('Text block added. Click inside its paragraph to edit, or drag the block to reposition it.');
+ items.push({type:'text',eyebrow:'PROJECT NOTE',heading:'',body:'Add your project text here. Double-click or click inside this paragraph to edit it.',x:x,y:bottom+6,w:w,h:12,align:'left'});
+ draftLayout.elements=items;selectedLayoutIndex=items.length-1;renderPreview();message('Text block added at half the image width, aligned to the shared page grid.');
 }
 function applyLayoutPosition(node,item){
  var x=Math.max(1,Math.min(48,Number(item.x)||1)),y=Math.max(1,Number(item.y)||1),w=Math.max(4,Math.min(48,Number(item.w)||32)),h=Math.max(3,Math.min(1000,Number(item.h)||8));
