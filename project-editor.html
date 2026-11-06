@@ -476,7 +476,7 @@ async function moveSelectedPhotosToTrash(){
  if(!chosen.length)return;
  if(!confirm('Move '+chosen.length+' selected photograph(s) into Studio Trash? This only changes the website photo library. Google Drive files and folders will not be moved or deleted.'))return;
  chosen.forEach(function(photo){var state=photoState(photo);state.previousSelected=!!state.selected;state.selected=false;state.trashed=true;photo.selected=false;});
- selectedFolderPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});draftLayout.heroMediaId=(orderedFolderPhotos().find(function(photo){return photo.media;})||{}).media?(orderedFolderPhotos().find(function(photo){return photo.media;})||{}).media.id:null;
+ selectedFolderPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});draftLayout.heroMediaId=(selectedFolderPhotos().find(function(photo){return photo.media;})||{}).media?(selectedFolderPhotos().find(function(photo){return photo.media;})||{}).media.id:null;
  try{
   await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
   message(chosen.length+' photograph(s) moved to Studio Trash. The original Google Drive folder is unchanged.');
