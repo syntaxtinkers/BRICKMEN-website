@@ -458,7 +458,7 @@ async function reorderSelectedPhotos(draggedId,targetId){
  var from=selected.findIndex(function(photo){return photo.drive_file_id===draggedId;});
  var to=selected.findIndex(function(photo){return photo.drive_file_id===targetId;});
  if(from<0||to<0||from===to)return false;
- var moved=selected.splice(from,1)[0];selected.splice(to,0,moved);
+ var moved=selected.splice(from,1)[0];to=selected.findIndex(function(photo){return photo.drive_file_id===targetId;});if(to<0)return false;selected.splice(to,0,moved);
  selected.forEach(function(photo,index){photoState(photo).order=index+1;});
  draftLayout.heroMediaId=(selected.find(function(photo){return photo.media;})||{}).media?(selected.find(function(photo){return photo.media;})||{}).media.id:null;
  try{await syncSelectedPhotoBlocks();await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();message('Photo order saved. The page preview and future AI article now follow this order.');}catch(error){message('Photo order could not be saved: '+error.message);}
