@@ -88,6 +88,8 @@ const observationSchema = objectSchema({
   }
 });
 
+const orderSchema = objectSchema({ image_order: { type: 'array', items: { type: 'string' } } });
+
 const articleSchema = objectSchema({
   title: { type: 'string' },
   category: { type: 'string' },
@@ -169,7 +171,7 @@ async function analyseBatch(apiKey, batch, batchNumber, batchCount) {
 
   let result;
   for (let attempt = 0; attempt < 2; attempt++) {
-    result = await askAI(apiKey, content, 4500, 'brickmen_photo_analysis', observationSchema);
+    try { result = await askAI(apiKey, content, 4500, 'brickmen_photo_analysis', observationSchema); }\n    catch (error) { throw new Error('Photo analysis failed for ' + batch.map(item => item.file_name).join(', ') + ': ' + error.message); }
     const observed = Array.isArray(result.observations) ? result.observations : [];
     const ids = new Set(observed.map(item => String(item.media_id || '')));
     if (observed.length === batch.length && batch.every(item => ids.has(item.id))) {
@@ -312,12 +314,21 @@ module.exports = async function generateProject(req, res) {
       throw new Error('The AI could not produce the required full-length architecture article. No incomplete layout was saved; run AI arrange again.');
     }
 
-    const imageOrderInput = Array.isArray(article.image_order) ? article.image_order.map(String) : [];
-    const visibleById = new Map(visible.map(item => [item.id, item]));
-    const orderedIds = [];
-    imageOrderInput.forEach(id => { if (visibleById.has(id) && !orderedIds.includes(id)) orderedIds.push(id); });
-    visible.forEach(item => { if (!orderedIds.includes(item.id)) orderedIds.push(item.id); });
-    if (orderedIds.length !== visible.length) throw new Error('The AI image sequence did not include every analysed photograph. Nothing was saved.');
+    let imageOrderInput = Array.isArray(article.image_order) ? article.image_order.map(String) : [];
+    const expectedIds = new Set(visible.map(item => item.id));
+    const hasCompleteOrder = ids => ids.length === visible.length && new Set(ids).size === visible.length && ids.every(id => expectedIds.has(id));
+    if (!hasCompleteOrder(imageOrderInput)) {
+      console.log('[Brickmen AI] Repairing incomplete image sequence project=' + projectId);
+      const orderPrompt = 'Arrange these already analysed architectural photographs into a compelling magazine sequence. Return every media_id exactly once, no missing IDs and no duplicates. Start with the cover ID ' + cover.id + ', then order the remaining images to tell a coherent spatial story. Evidence: ' + JSON.stringify(photoEvidence) + '. Return only image_order.';
+      const repairedOrder = await askAI(apiKey, [{ type: 'input_text', text: orderPrompt }], 2500, 'brickmen_image_sequence', orderSchema);
+      imageOrderInput = Array.isArray(repairedOrder.image_order) ? repairedOrder.image_order.map(String) : [];
+    }
+    if (!hasCompleteOrder(imageOrderInput)) {
+      const supplied = new Set(imageOrderInput);
+      const missing = visible.filter(item => !supplied.has(item.id)).map(item => item.file_name);
+      throw new Error('The AI did not organise every analysed photograph into its article sequence. Missing: ' + missing.join(', ') + '. No incomplete page was saved.');
+    }
+    const orderedIds = imageOrderInput;
 
     const current = project.draft_content && typeof project.draft_content === 'object' ? project.draft_content : {};
     const draft = Object.assign({}, current, {
