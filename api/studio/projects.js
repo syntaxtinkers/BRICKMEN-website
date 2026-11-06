@@ -152,17 +152,48 @@ module.exports = async function studioProjects(req, res) {
     }
 
     if (action === 'publish') {
-      // Publishing is the explicit approval gate: copy every imported, visible image
-      // from private review storage to the public portfolio bucket.
-      const projectMedia = await db('brickmen_project_media?select=id,drive_file_id,file_name,mime_type,private_storage_path,public_storage_path,is_hidden&project_id=eq.' + encodeURIComponent(projectId));
+      // The saved virtual photo-folder state is authoritative at the publish boundary.
+      // Google Drive remains read-only: only private/public Studio storage and DB flags change.
+      const layoutRows = await db('brickmen_project_layouts?select=draft_layout&project_id=eq.' + encodeURIComponent(projectId) + '&limit=1');
+      const draftLayout = Array.isArray(layoutRows) && layoutRows.length && layoutRows[0].draft_layout && typeof layoutRows[0].draft_layout === 'object'
+        ? layoutRows[0].draft_layout : { version: 1, elements: [] };
+      const libraryItems = draftLayout.photo_library && Array.isArray(draftLayout.photo_library.items) ? draftLayout.photo_library.items : [];
+      const libraryByDriveId = new Map(libraryItems.map(item => [String(item.drive_file_id || ''), item]));
+
+      const projectMedia = await db('brickmen_project_media?select=id,drive_file_id,file_name,mime_type,private_storage_path,public_storage_path,is_hidden,is_public&project_id=eq.' + encodeURIComponent(projectId));
       let prepared = 0;
       for (const item of (Array.isArray(projectMedia) ? projectMedia : [])) {
-        if (item.is_hidden) continue;
+        const savedState = libraryByDriveId.get(String(item.drive_file_id || ''));
+        const selected = savedState ? !!savedState.selected && !savedState.trashed : !item.is_hidden;
+
+        if (!selected) {
+          if (!item.is_hidden) {
+            await db('brickmen_project_media?id=eq.' + encodeURIComponent(item.id) + '&project_id=eq.' + encodeURIComponent(projectId), 'PATCH', {
+              is_hidden: true,
+              updated_at: new Date().toISOString()
+            });
+          }
+          continue;
+        }
+
+        if (item.is_hidden) {
+          await db('brickmen_project_media?id=eq.' + encodeURIComponent(item.id) + '&project_id=eq.' + encodeURIComponent(projectId), 'PATCH', {
+            is_hidden: false,
+            updated_at: new Date().toISOString()
+          });
+        }
+
         if (item.public_storage_path) {
-          if (!item.is_public) await db('brickmen_project_media?id=eq.' + encodeURIComponent(item.id), 'PATCH', { is_public: true, updated_at: new Date().toISOString() });
-          prepared++; continue;
+          if (!item.is_public || item.is_hidden) {
+            await db('brickmen_project_media?id=eq.' + encodeURIComponent(item.id) + '&project_id=eq.' + encodeURIComponent(projectId), 'PATCH', {
+              is_public: true, is_hidden: false, updated_at: new Date().toISOString()
+            });
+          }
+          prepared++;
+          continue;
         }
         if (!item.private_storage_path) continue;
+
         const source = await fetch(base() + '/storage/v1/object/brickmen-studio-private/' + item.private_storage_path, {
           headers: { apikey: key(), Authorization: 'Bearer ' + key() }
         });
@@ -176,22 +207,24 @@ module.exports = async function studioProjects(req, res) {
         });
         if (!upload.ok) throw new Error('Could not prepare "' + item.file_name + '" for the public portfolio (HTTP ' + upload.status + ').');
         const updated = await db('brickmen_project_media?id=eq.' + encodeURIComponent(item.id) + '&project_id=eq.' + encodeURIComponent(projectId), 'PATCH', {
-          is_public: true, public_storage_path: publicPath, updated_at: new Date().toISOString()
+          is_public: true, is_hidden: false, public_storage_path: publicPath, updated_at: new Date().toISOString()
         }, 'return=representation');
         if (!Array.isArray(updated) || !updated.length) throw new Error('A copied image could not be linked to its project.');
         prepared++;
       }
-      if (!prepared) return sendJson(res, 409, { error: 'Import at least one photograph to this project before publishing.' });
+      if (!prepared) return sendJson(res, 409, { error: 'Select and prepare at least one photograph in the project photo folder before publishing.' });
+
       const projectRows = await db('brickmen_projects?select=draft_content&id=eq.' + encodeURIComponent(projectId) + '&limit=1');
       const draftContent = projectRows && projectRows[0] && projectRows[0].draft_content && typeof projectRows[0].draft_content === 'object' ? projectRows[0].draft_content : {};
       const livePatch = {};
       ['title','location','category','project_year','start_date','description','visibility'].forEach((field) => {
         if (Object.prototype.hasOwnProperty.call(draftContent, field)) livePatch[field] = draftContent[field];
       });
-      const layoutRows = await db('brickmen_project_layouts?select=draft_layout&project_id=eq.' + encodeURIComponent(projectId) + '&limit=1');
       if (Array.isArray(layoutRows) && layoutRows.length) {
+        const publishedLayout = Object.assign({}, draftLayout);
+        delete publishedLayout.photo_library;
         await db('brickmen_project_layouts?project_id=eq.' + encodeURIComponent(projectId), 'PATCH', {
-          published_layout: layoutRows[0].draft_layout || { version: 1, elements: [] },
+          published_layout: publishedLayout,
           updated_at: new Date().toISOString()
         });
       }
@@ -207,7 +240,7 @@ module.exports = async function studioProjects(req, res) {
         updated_at: now
       }, 'return=representation');
       if (!Array.isArray(rows) || !rows.length) return sendJson(res, 404, { error: 'Project not found.' });
-      return sendJson(res, 200, { project: rows[0] });
+      return sendJson(res, 200, { project: rows[0], prepared_photos: prepared, photo_library_state_saved: true });
     }
 
     if (action === 'unpublish') {
