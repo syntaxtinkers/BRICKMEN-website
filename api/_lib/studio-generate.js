@@ -245,6 +245,12 @@ module.exports = async function generateProject(req, res) {
       if (!item.private_storage_path) return false;
       const state = savedPhotoStates.get(String(item.drive_file_id || ''));
       return state ? !!state.selected && !state.trashed : !item.is_hidden;
+    }).sort((a, b) => {
+      const stateA = savedPhotoStates.get(String(a.drive_file_id || ''));
+      const stateB = savedPhotoStates.get(String(b.drive_file_id || ''));
+      const orderA = stateA && Number.isFinite(Number(stateA.order)) ? Number(stateA.order) : Number(a.sort_order || 0);
+      const orderB = stateB && Number.isFinite(Number(stateB.order)) ? Number(stateB.order) : Number(b.sort_order || 0);
+      return orderA - orderB || String(a.file_name || '').localeCompare(String(b.file_name || ''));
     });
     if (!visible.length) return sendJson(res, 409, { error: 'No selected, imported photographs are ready for analysis. Open Select images, choose photographs, and prepare them first.' });
 
@@ -276,7 +282,7 @@ module.exports = async function generateProject(req, res) {
       if (!assigned) assigned = 'custom';
     }
 
-    const cover = visible.find(item => item.is_cover) || visible[0];
+    const cover = visible[0];
     const bodyPhotoCount = visible.length - 1;
     const paragraphCount = Math.min(7, Math.max(3, Math.ceil(bodyPhotoCount / 3) + 1));
     const photoEvidence = observations.map(item => ({
@@ -297,7 +303,7 @@ module.exports = async function generateProject(req, res) {
       }),
       'Every visible photograph has already been individually examined. Here is the verified photo-by-photo visual evidence. Use it as your primary source and do not invent details: ' + JSON.stringify(photoEvidence),
       'Return a concise standfirst description of 55-75 words, then exactly ' + paragraphCount + ' substantial magazine paragraphs. Each paragraph must contain approximately 65-95 words, have an original short heading and eyebrow, and advance the architectural narrative. The standfirst must not repeat the paragraphs.',
-      'Return image_order as every MEDIA ID listed above exactly once. The cover image is ' + cover.id + '; it is already displayed in the hero, so it will not be repeated in the body. Sequence all other photographs with visual intent: establish the overall spatial idea, move through connected spaces, details, light, landscape and atmosphere, then close with the strongest concluding image. Do not omit or duplicate a photo.',
+      'The photograph order has been manually arranged by the editor in the project photo folder. Preserve this exact order; do not reorder it. image_order must list MEDIA IDs in precisely the same order as the evidence below, beginning with cover image ' + cover.id + '. The cover is displayed in the hero, so it will not be repeated in the body. Write paragraphs around this fixed sequence: establish the overall spatial idea, move through connected spaces, details, light, landscape and atmosphere, then close with the strongest concluding image. Do not omit or duplicate a photo.',
       'Write captions that are short, factual and tied to the exact photograph. Acknowledge uncertainty rather than guessing. Avoid inventing architect/client, address, use, dimensions, construction methods, branded materials, sustainability claims, awards, budgets or dates.',
       'Art direct the article like a premium architecture journal. Give a coherent editorial concept, considered type pairing, a strict horizontal alignment system, large photographs and restrained whitespace. '+(assigned === 'custom'
         ? 'Invent a new project-specific theme. Choose a restrained paper/ink/accent palette, a typography direction, hero arrangement, text treatment and page margins (1, 2 or 3 grid columns).'
@@ -322,21 +328,8 @@ module.exports = async function generateProject(req, res) {
       throw new Error('The AI could not produce the required full-length architecture article. No incomplete layout was saved; run AI arrange again.');
     }
 
-    let imageOrderInput = Array.isArray(article.image_order) ? article.image_order.map(String) : [];
-    const expectedIds = new Set(visible.map(item => item.id));
-    const hasCompleteOrder = ids => ids.length === visible.length && new Set(ids).size === visible.length && ids.every(id => expectedIds.has(id));
-    if (!hasCompleteOrder(imageOrderInput)) {
-      console.log('[Brickmen AI] Repairing incomplete image sequence project=' + projectId);
-      const orderPrompt = 'Arrange these already analysed architectural photographs into a compelling magazine sequence. Return every media_id exactly once, no missing IDs and no duplicates. Start with the cover ID ' + cover.id + ', then order the remaining images to tell a coherent spatial story. Evidence: ' + JSON.stringify(photoEvidence) + '. Return only image_order.';
-      const repairedOrder = await askAI(apiKey, [{ type: 'input_text', text: orderPrompt }], 2500, 'brickmen_image_sequence', orderSchema);
-      imageOrderInput = Array.isArray(repairedOrder.image_order) ? repairedOrder.image_order.map(String) : [];
-    }
-    if (!hasCompleteOrder(imageOrderInput)) {
-      const supplied = new Set(imageOrderInput);
-      const missing = visible.filter(item => !supplied.has(item.id)).map(item => item.file_name);
-      throw new Error('The AI did not organise every analysed photograph into its article sequence. Missing: ' + missing.join(', ') + '. No incomplete page was saved.');
-    }
-    const orderedIds = imageOrderInput;
+    // The thumbnail order chosen by the user is authoritative. The AI writes to this sequence; it never silently changes it.
+    const orderedIds = visible.map(item => item.id);
 
     const current = project.draft_content && typeof project.draft_content === 'object' ? project.draft_content : {};
     const draft = Object.assign({}, current, {
