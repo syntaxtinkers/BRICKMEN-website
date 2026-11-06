@@ -374,10 +374,6 @@ async function preparePhotos(requireSelection){
   }
   await loadPhotos();
   var selectedAfter=photos.filter(function(photo){var st=photoState(photo);return st.selected&&!st.trashed&&photo.media;});
-  for(var j=0;j<selectedAfter.length;j++){
-   var item=selectedAfter[j];
-   if(item.media.is_hidden){await updateMedia(item.media.id,{is_hidden:false});item.media.is_hidden=false;}
-  }
   await persistPhotoLibraryState();
   await renderPhotos();
   if(imported)message(imported+' selected photographs prepared in private Studio storage. Original Drive files remain in their original folders.');
@@ -400,10 +396,8 @@ async function togglePhotoSelection(photo){
  var state=photoState(photo),next=!state.selected;
  state.selected=next;state.trashed=false;photo.selected=next&&!state.trashed;
  renderPickerSummary();renderPhotoPicker();renderPreview();
- try{
-  if(photo.media){await updateMedia(photo.media.id,{is_hidden:!next});photo.media.is_hidden=!next;}
-  await persistPhotoLibraryState();
- }catch(error){state.selected=!next;photo.selected=state.selected&&!state.trashed;if(photo.media)photo.media.is_hidden=!state.selected;renderPhotoPicker();renderPickerSummary();renderPreview();message('Photo selection could not be saved: '+error.message);}
+ try{await persistPhotoLibraryState();}
+ catch(error){state.selected=!next;photo.selected=state.selected&&!state.trashed;renderPhotoPicker();renderPickerSummary();renderPreview();message('Photo selection could not be saved: '+error.message);}
 }
 async function moveSelectedPhotosToTrash(){
  var chosen=photos.filter(function(photo){var state=photoState(photo);return state.selected&&!state.trashed;});
@@ -411,7 +405,6 @@ async function moveSelectedPhotosToTrash(){
  if(!confirm('Move '+chosen.length+' selected photograph(s) into Studio Trash? This only changes the website photo library. Google Drive files and folders will not be moved or deleted.'))return;
  chosen.forEach(function(photo){var state=photoState(photo);state.previousSelected=!!state.selected;state.selected=false;state.trashed=true;photo.selected=false;});
  try{
-  await Promise.all(chosen.filter(function(photo){return !!photo.media;}).map(function(photo){return updateMedia(photo.media.id,{is_hidden:true}).then(function(){photo.media.is_hidden=true;});}));
   await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
   message(chosen.length+' photograph(s) moved to Studio Trash. The original Google Drive folder is unchanged.');
  }catch(error){message('The Trash state could not be saved: '+error.message);}
@@ -422,7 +415,6 @@ async function restoreSelectedPhotos(){
  chosen.forEach(function(photo){var state=photoState(photo);state.trashed=false;state.selected=!!state.previousSelected;state.previousSelected=false;photo.selected=state.selected;});
  trashActionSelection={};
  try{
-  await Promise.all(chosen.filter(function(photo){return !!photo.media;}).map(function(photo){var state=photoState(photo);return updateMedia(photo.media.id,{is_hidden:!state.selected}).then(function(){photo.media.is_hidden=!state.selected;});}));
   await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
   message(chosen.length+' photograph(s) restored to the project folder. Their previous page-selection state has been restored.');
  }catch(error){message('The restore state could not be saved: '+error.message);}
