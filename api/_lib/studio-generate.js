@@ -236,9 +236,17 @@ module.exports = async function generateProject(req, res) {
     if (!Array.isArray(projects) || !projects.length) return sendJson(res, 404, { error: 'Project not found.' });
     const project = projects[0];
 
-    const mediaRows = await db('brickmen_project_media?select=id,file_name,private_storage_path,is_hidden,caption,alt_text,sort_order,is_cover&project_id=eq.' + encodeURIComponent(projectId) + '&order=sort_order.asc');
-    const visible = (Array.isArray(mediaRows) ? mediaRows : []).filter(item => item.private_storage_path && !item.is_hidden);
-    if (!visible.length) return sendJson(res, 409, { error: 'No visible imported photographs are ready for analysis. Import the project photos first.' });
+    const mediaRows = await db('brickmen_project_media?select=id,drive_file_id,file_name,private_storage_path,is_hidden,caption,alt_text,sort_order,is_cover&project_id=eq.' + encodeURIComponent(projectId) + '&order=sort_order.asc');
+    const existingLayouts = await db('brickmen_project_layouts?select=project_id,draft_layout');
+    const currentLayoutRow = (Array.isArray(existingLayouts) ? existingLayouts : []).find(row => row.project_id === projectId) || null;
+    const savedPhotoLibrary = currentLayoutRow && currentLayoutRow.draft_layout && currentLayoutRow.draft_layout.photo_library ? currentLayoutRow.draft_layout.photo_library : null;
+    const savedPhotoStates = new Map((savedPhotoLibrary && Array.isArray(savedPhotoLibrary.items) ? savedPhotoLibrary.items : []).map(item => [String(item.drive_file_id || ''), item]));
+    const visible = (Array.isArray(mediaRows) ? mediaRows : []).filter(item => {
+      if (!item.private_storage_path) return false;
+      const state = savedPhotoStates.get(String(item.drive_file_id || ''));
+      return state ? !!state.selected && !state.trashed : !item.is_hidden;
+    });
+    if (!visible.length) return sendJson(res, 409, { error: 'No selected, imported photographs are ready for analysis. Open Select images, choose photographs, and prepare them first.' });
 
     console.log('[Brickmen AI] Start project=' + projectId + ' visible_photos=' + visible.length + ' model=' + MODEL);
     const groups = [];
@@ -256,9 +264,6 @@ module.exports = async function generateProject(req, res) {
     const voice = comic
       ? 'Write a sophisticated, witty, fictional Brickmen superhero comic feature. The team uses imaginative superpowers of light, space, structure, landscape and craft. Clearly present this as creative brand storytelling, never factual project history.'
       : 'Write like a perceptive architectural journalist for an internationally respected architecture magazine. Be literate, atmospheric, observant and specific. Build a coherent architectural argument across the article. No marketing slogans, generic praise, repetitive captions or filler. Let each paragraph reveal a new spatial idea.';
-    const existingLayouts = await db('brickmen_project_layouts?select=project_id,draft_layout');
-    const currentLayoutRow = (Array.isArray(existingLayouts) ? existingLayouts : []).find(row => row.project_id === projectId) || null;
-    const savedPhotoLibrary = currentLayoutRow && currentLayoutRow.draft_layout && currentLayoutRow.draft_layout.photo_library ? currentLayoutRow.draft_layout.photo_library : null;
     const occupied = new Set((Array.isArray(existingLayouts) ? existingLayouts : [])
       .filter(row => row.project_id !== projectId && row.draft_layout)
       .map(row => ({ editorial: 't01', minimal: 't04', gallery: 't03' }[row.draft_layout.template] || row.draft_layout.template))
