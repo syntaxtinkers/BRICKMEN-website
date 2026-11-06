@@ -171,7 +171,8 @@ async function analyseBatch(apiKey, batch, batchNumber, batchCount) {
 
   let result;
   for (let attempt = 0; attempt < 2; attempt++) {
-    try { result = await askAI(apiKey, content, 4500, 'brickmen_photo_analysis', observationSchema); }\n    catch (error) { throw new Error('Photo analysis failed for ' + batch.map(item => item.file_name).join(', ') + ': ' + error.message); }
+    try { result = await askAI(apiKey, content, 4500, 'brickmen_photo_analysis', observationSchema); }
+    catch (error) { throw new Error('Photo analysis failed for ' + batch.map(item => item.file_name).join(', ') + ': ' + error.message); }
     const observed = Array.isArray(result.observations) ? result.observations : [];
     const ids = new Set(observed.map(item => String(item.media_id || '')));
     if (observed.length === batch.length && batch.every(item => ids.has(item.id))) {
