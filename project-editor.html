@@ -527,6 +527,7 @@ function renderPreview(){
  var blocks=elements.map(function(item,index){
   if(!item||!['text','image'].includes(item.type))return '';
   var x=Math.max(1,Math.min(48,Number(item.x)||1)),y=Math.max(1,Number(item.y)||1),w=Math.max(4,Math.min(48,Number(item.w)||32)),h=Math.max(3,Math.min(1000,Number(item.h)||8));
+  if(item.type==='image'){x=pageX;w=pageW;}else{w=textW;x=(textIndex++%2===0)?pageX:pageX+pageW-textW;}
   w=Math.min(w,49-x);
   var position='grid-column:'+x+'/span '+w+';grid-row:'+y+'/span '+h+';';
   if(item.type==='image'){
