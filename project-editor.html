@@ -217,7 +217,7 @@ async function preparePhotos(){
 function imageStyle(photo){
  var a=photo&&photo.media&&photo.media.image_adjustments||{},crop=photo&&photo.media&&photo.media.crop||{};
  var b=Math.max(50,Math.min(150,Number(a.brightness)||100)),c=Math.max(50,Math.min(150,Number(a.contrast)||100)),s=Math.max(0,Math.min(200,Number(a.saturation)||100));
- return 'filter:brightness('+b+'%) contrast('+c+'%) saturate('+s+'%);object-fit:'+(crop.fit==='contain'?'contain':'cover')+';';
+ return 'filter:brightness('+b+'%) contrast('+c+'%) saturate('+s+'%);object-fit:'+(crop.fit==='cover'?'cover':'contain')+';';
 }
 function layoutHandles(index){
  var names=['nw','n','ne','e','se','s','sw','w'];
@@ -299,7 +299,7 @@ async function generateAiDraft(automatic){
   $('layoutTemplate').value=draftLayout.template==='custom'?'ai-custom':(draftLayout.template||'t01');
   await loadPhotos();
   renderPreview();
-  message('AI created an editable '+$('aiTone').value.toLowerCase()+' draft after analysing '+result.analyzed_photos+' photographs'+(result.skipped_photos?'; '+result.skipped_photos+' large or unavailable images were skipped':'')+'. Review every detail before publishing.');
+  if(!result.analysis_complete||Number(result.total_photos)!==Number(result.analyzed_photos)||Number(result.analyzed_photos)!==orderedPhotos().filter(function(p){return p.selected&&p.media&&!p.media.is_hidden;}).length){throw new Error('The AI photo audit was incomplete. No page should be published until every visible photograph has been analysed. Please run AI arrange again.');}\n  var selectedTemplate=window.BrickmenTemplates&&window.BrickmenTemplates.all.find(function(t){return t.id===result.template;});\n  var designName=result.template==='custom'?'AI-created original design':(selectedTemplate?selectedTemplate.name:result.template_name);\n  message('Photo audit complete: '+result.analyzed_photos+'/'+result.total_photos+' photographs analysed. AI wrote '+result.text_blocks+' magazine passages and arranged every photograph full-width with a shared alignment grid. Design: '+designName+'. Review the editorial before publishing.');
   return true;
  }catch(error){message(error.message);return false;}
  finally{busy=false;button.disabled=false;button.textContent='AI arrange & describe';}
