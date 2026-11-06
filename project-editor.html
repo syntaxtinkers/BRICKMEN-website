@@ -653,7 +653,10 @@ $('moveToTrash').addEventListener('click',moveSelectedPhotosToTrash);
 $('restoreFromTrash').addEventListener('click',restoreSelectedPhotos);
 $('photoPickerSearch').addEventListener('input',renderPhotoPicker);
 $('photoPickerGrid').addEventListener('click',async function(event){
- var setCover=event.target.closest('[data-tile-cover]');\n if(setCover){var coverPhoto=photos.find(function(p){return p.drive_file_id===setCover.dataset.tileCover;});if(coverPhoto&&coverPhoto.media){try{await updateMedia(coverPhoto.media.id,{is_cover:true});await loadPhotos();message('Cover photograph updated for the project draft.');}catch(error){message(error.message);}}return;}\n var adjust=event.target.closest('[data-tile-adjust]');\n if(adjust){
+ var setCover=event.target.closest('[data-tile-cover]');
+ if(setCover){var coverPhoto=photos.find(function(p){return p.drive_file_id===setCover.dataset.tileCover;});if(coverPhoto&&coverPhoto.media){try{await updateMedia(coverPhoto.media.id,{is_cover:true});await loadPhotos();message('Cover photograph updated for the project draft.');}catch(error){message(error.message);}}return;}
+ var adjust=event.target.closest('[data-tile-adjust]');
+ if(adjust){
   var selectedPhoto=photos.find(function(p){return p.drive_file_id===adjust.dataset.tileAdjust;});
   closePhotoPicker();if(selectedPhoto)openAdjustments(selectedPhoto);return;
  }
