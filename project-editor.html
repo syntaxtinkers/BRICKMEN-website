@@ -354,26 +354,78 @@ async function applyAdjustments(){
   await loadPhotos();message('Image adjustments saved to this draft.');
  }catch(error){message(error.message);}
 }
-async function preparePhotos(){
- if(busy)return;busy=true;clearMessage();var button=$('prepareAll');button.disabled=true;button.textContent='Preparing photos…';
+async function preparePhotos(requireSelection){
+ if(photoPreparing)return false;
+ photoPreparing=true;clearMessage();
+ var button=$('prepareAll');button.disabled=true;button.textContent='Preparing selected…';
  try{
-  var pending=photos.filter(function(p){return !p.selected;});
-  var complete=0,skipped=0;
+  var selected=photos.filter(function(photo){var st=photoState(photo);return st.selected&&!st.trashed;});
+  if(!selected.length){
+   if(requireSelection)message('Select at least one photograph in the project photo folder first.');
+   return !requireSelection;
+  }
+  var pending=selected.filter(function(photo){return !photo.media;});
+  var imported=0;
   for(var i=0;i<pending.length;i+=3){
-   var ids=pending.slice(i,i+3).map(function(p){return p.drive_file_id;});
+   var ids=pending.slice(i,i+3).map(function(photo){return photo.drive_file_id;});
    var response=await request('/api/studio/projects','POST',{action:'import_batch',projectId:projectId,fileIds:ids});
-   (response.imported||[]).forEach(function(item){if(item.skipped)skipped++;else complete++;});
+   (response.imported||[]).forEach(function(item){if(item.media)imported++;});
    button.textContent='Preparing '+Math.min(i+3,pending.length)+' / '+pending.length;
-   $('photoHint').textContent=complete+' photographs imported to private storage'+(skipped?' · '+skipped+' skipped':'')+'. Original Drive files remain unchanged.';
-   await loadPhotos();
   }
-  if(!pending.length)message('All available project photographs have already been prepared.');
-  else {
-   message(complete+' photographs prepared privately'+(skipped?'; '+skipped+' exceeded the storage limit':'')+'. Review the gallery and hide anything you do not want on the public page.');
+  await loadPhotos();
+  var selectedAfter=photos.filter(function(photo){var st=photoState(photo);return st.selected&&!st.trashed&&photo.media;});
+  for(var j=0;j<selectedAfter.length;j++){
+   var item=selectedAfter[j];
+   if(item.media.is_hidden){await updateMedia(item.media.id,{is_hidden:false});item.media.is_hidden=false;}
   }
- }catch(error){message(error.message+' You can run Prepare all photos again to continue.');}
- finally{busy=false;button.disabled=false;button.textContent='Prepare all photos';}
- if(pending.length&&complete>0&&!(project.draft_content&&project.draft_content.ai_generated_at))await generateAiDraft(true);
+  await persistPhotoLibraryState();
+  await renderPhotos();
+  if(imported)message(imported+' selected photographs prepared in private Studio storage. Original Drive files remain in their original folders.');
+  else if(selected.length)message(selected.length+' selected photographs are ready for this project page.');
+  return true;
+ }catch(error){message(error.message+' Your Google Drive originals have not been changed.');return false;}
+ finally{photoPreparing=false;button.disabled=false;button.textContent='Prepare selected photos';}
+}
+async function openPhotoPicker(){
+ $('photoPicker').classList.add('open');$('photoPicker').setAttribute('aria-hidden','false');
+ photoPickerTab='main';trashActionSelection={};$('photoPickerSearch').value='';
+ $('photoPickerTitle').textContent=(project&&project.title?project.title+' · ':'')+'Project photographs';
+ renderPhotoPicker();
+}
+function closePhotoPicker(){
+ $('photoPicker').classList.remove('open');$('photoPicker').setAttribute('aria-hidden','true');
+ if(pickerObserver)pickerObserver.disconnect();
+}
+async function togglePhotoSelection(photo){
+ var state=photoState(photo),next=!state.selected;
+ state.selected=next;state.trashed=false;photo.selected=next&&!state.trashed;
+ renderPickerSummary();renderPhotoPicker();renderPreview();
+ try{
+  if(photo.media){await updateMedia(photo.media.id,{is_hidden:!next});photo.media.is_hidden=!next;}
+  await persistPhotoLibraryState();
+ }catch(error){state.selected=!next;photo.selected=state.selected&&!state.trashed;if(photo.media)photo.media.is_hidden=!state.selected;renderPhotoPicker();renderPickerSummary();renderPreview();message('Photo selection could not be saved: '+error.message);}
+}
+async function moveSelectedPhotosToTrash(){
+ var chosen=photos.filter(function(photo){var state=photoState(photo);return state.selected&&!state.trashed;});
+ if(!chosen.length)return;
+ if(!confirm('Move '+chosen.length+' selected photograph(s) into Studio Trash? This only changes the website photo library. Google Drive files and folders will not be moved or deleted.'))return;
+ chosen.forEach(function(photo){var state=photoState(photo);state.previousSelected=!!state.selected;state.selected=false;state.trashed=true;photo.selected=false;});
+ try{
+  await Promise.all(chosen.filter(function(photo){return !!photo.media;}).map(function(photo){return updateMedia(photo.media.id,{is_hidden:true}).then(function(){photo.media.is_hidden=true;});}));
+  await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
+  message(chosen.length+' photograph(s) moved to Studio Trash. The original Google Drive folder is unchanged.');
+ }catch(error){message('The Trash state could not be saved: '+error.message);}
+}
+async function restoreSelectedPhotos(){
+ var chosen=photos.filter(function(photo){return photoState(photo).trashed&&trashActionSelection[photo.drive_file_id];});
+ if(!chosen.length)return;
+ chosen.forEach(function(photo){var state=photoState(photo);state.trashed=false;state.selected=!!state.previousSelected;state.previousSelected=false;photo.selected=state.selected;});
+ trashActionSelection={};
+ try{
+  await Promise.all(chosen.filter(function(photo){return !!photo.media;}).map(function(photo){var state=photoState(photo);return updateMedia(photo.media.id,{is_hidden:!state.selected}).then(function(){photo.media.is_hidden=!state.selected;});}));
+  await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
+  message(chosen.length+' photograph(s) restored to the project folder. Their previous page-selection state has been restored.');
+ }catch(error){message('The restore state could not be saved: '+error.message);}
 }
 function imageStyle(photo){
  var a=photo&&photo.media&&photo.media.image_adjustments||{},crop=photo&&photo.media&&photo.media.crop||{};
@@ -432,13 +484,16 @@ function populateTemplateChoices(){
 populateTemplateChoices();
 function escapeHtml(value){return String(value||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
 async function saveDraft(){
- if(busy)return false;busy=true;clearMessage();var saved=false;
+ if(busy)return false;
+ var photosReady=await preparePhotos(false);if(!photosReady)return false;
+ await photoStateWritePromise.catch(function(){});
+ busy=true;clearMessage();var saved=false;
  try{
   var content=currentContent();
   await request('/api/studio/projects','POST',Object.assign({action:'save',projectId:projectId},content));
-  draftLayout=Object.assign({},draftLayout||{},{version:2,template:(draftLayout&&draftLayout.template)||$('layoutTemplate').value||'t01',grid:{sizeMm:5,columns:48},elements:Array.isArray(draftLayout&&draftLayout.elements)?draftLayout.elements:[]});
+  draftLayout=Object.assign({},draftLayout||{},{version:4,template:(draftLayout&&draftLayout.template)||$('layoutTemplate').value||'t01',grid:{sizeMm:5,columns:48},elements:Array.isArray(draftLayout&&draftLayout.elements)?draftLayout.elements:[],photo_library:{version:1,items:photoLibraryItems()}});
   await request('/api/studio/projects','POST',{action:'save_layout',projectId:projectId,canvas:{width:240,columns:48,unit:'grid'},draft_layout:draftLayout});
-  message('Draft saved. Your live published page is unchanged until you publish.');saved=true;
+  message('Draft saved. Selected photos and Studio Trash are remembered for next time. Your live published page is unchanged until you publish.');saved=true;
  }catch(error){message(error.message);}
  finally{busy=false;}
  return saved;
@@ -446,7 +501,8 @@ async function saveDraft(){
 function coverId(){var p=orderedPhotos().find(function(x){return x.media&&x.media.is_cover;})||orderedPhotos()[0];return p?p.drive_file_id:null;}
 async function generateAiDraft(automatic){
  if(busy)return false;
- if(!automatic&&!confirm('Analyse the imported project photographs and create a fresh editable text and design proposal? This will replace the current draft description and photo captions.'))return false;
+ if(!automatic&&!confirm('Analyse every selected project photograph and create a fresh editable architecture magazine article and page layout? This replaces the current AI-generated draft text and layout.'))return false;
+ if(!await preparePhotos(true))return false;
  busy=true;clearMessage();var button=$('generatePage');button.disabled=true;button.textContent='Analysing photographs…';
  try{
   var result=await request('/api/studio/projects','POST',{action:'generate_ai',projectId:projectId,tone:$('aiTone').value||'Classy',templateId:$('layoutTemplate').value||'ai-custom'});
@@ -611,12 +667,8 @@ async function init(){
   if(savedLayout.layout&&savedLayout.layout.draft_layout)draftLayout=savedLayout.layout.draft_layout;
   $('layoutTemplate').value=draftLayout.template==='custom'?'ai-custom':(draftLayout.template||'t01');
   await loadPhotos();
-  var pending=photos.filter(function(p){return !p.selected;});
-  if(pending.length){$('photoHint').textContent='Automatically preparing '+pending.length+' project images in private storage. You can continue editing while the photo library updates.';preparePhotos();}
-  else {
-   $('photoHint').textContent='All indexed project photographs are already prepared. Hide any image you do not want published.';
-   if(!(project.draft_content&&project.draft_content.ai_generated_at))generateAiDraft(true);
-  }
+  $('photoHint').textContent='Open Select images to browse large thumbnails. Blue outlines mark photos selected for this page. Use Prepare selected photos to import the chosen images privately. Studio Trash never changes Google Drive.';
+  if(project.is_published)$('status').textContent='Published project · photo choices and edits remain editable here until you republish';
  }catch(error){message(error.message);$('status').textContent='Unable to load this project.';}
 }
 init();
