@@ -316,7 +316,9 @@ function renderPhotoPicker(){
   tile.appendChild(thumb);tile.appendChild(name);tile.appendChild(meta);
   if(photo.media&&!state.trashed&&photoPickerTab==='main'){
    var tools=document.createElement('div');tools.className='photo-tile-tools';
-   var cover=document.createElement('button');cover.type='button';cover.textContent=photo.media.is_cover?'Cover image':'Set as cover';cover.dataset.tileCover=photo.drive_file_id;tools.appendChild(cover);\n   var adjust=document.createElement('button');adjust.type='button';adjust.textContent='Adjust image';adjust.dataset.tileAdjust=photo.drive_file_id;\n   tools.appendChild(adjust);tile.appendChild(tools);
+   var cover=document.createElement('button');cover.type='button';cover.textContent=photo.media.is_cover?'Cover image':'Set as cover';cover.dataset.tileCover=photo.drive_file_id;tools.appendChild(cover);
+   var adjust=document.createElement('button');adjust.type='button';adjust.textContent='Adjust image';adjust.dataset.tileAdjust=photo.drive_file_id;
+   tools.appendChild(adjust);tile.appendChild(tools);
   }
   grid.appendChild(tile);
  });
