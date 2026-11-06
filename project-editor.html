@@ -194,7 +194,7 @@ async function imageFor(photo){
  var url=URL.createObjectURL(await response.blob());objects[photo.drive_file_id]=url;return url;
 }
 function photoState(photo){return photoLibraryState[photo.drive_file_id]||(photoLibraryState[photo.drive_file_id]={selected:!!(photo.media&&!photo.media.is_hidden),trashed:false,previousSelected:false});}
-function orderedPhotos(){return photos.filter(function(p){var st=photoState(p);return st.selected&&!st.trashed&&p.media&& !p.media.is_hidden;}).slice().sort(function(a,b){return Number((a.media&&a.media.sort_order)||0)-Number((b.media&&b.media.sort_order)||0)||String(a.name).localeCompare(String(b.name));});}
+function orderedPhotos(){return photos.filter(function(p){var st=photoState(p);return st.selected&&!st.trashed&&p.media;}).slice().sort(function(a,b){return Number((a.media&&a.media.sort_order)||0)-Number((b.media&&b.media.sort_order)||0)||String(a.name).localeCompare(String(b.name));});}
 async function preloadVisibleImages(items){
  var cursor=0,failed=[];
  await Promise.all(Array.from({length:Math.min(5,items.length)},async function(){
