@@ -301,7 +301,8 @@ async function generateAiDraft(automatic){
   renderPreview();
   if(!result.analysis_complete||Number(result.total_photos)!==Number(result.analyzed_photos)||Number(result.analyzed_photos)!==orderedPhotos().filter(function(p){return p.selected&&p.media&&!p.media.is_hidden;}).length){throw new Error('The AI photo audit was incomplete. No page should be published until every visible photograph has been analysed. Please run AI arrange again.');}
   var selectedTemplate=window.BrickmenTemplates&&window.BrickmenTemplates.all.find(function(t){return t.id===result.template;});
-  var designName=result.template==='custom'?'AI-created original design':(selectedTemplate?selectedTemplate.name:result.template_name);\n  message('Photo audit complete: '+result.analyzed_photos+'/'+result.total_photos+' photographs analysed. AI wrote '+result.text_blocks+' magazine passages and arranged every photograph full-width with a shared alignment grid. Design: '+designName+'. Review the editorial before publishing.');
+  var designName=result.template==='custom'?'AI-created original design':(selectedTemplate?selectedTemplate.name:result.template_name);
+  message('Photo audit complete: '+result.analyzed_photos+'/'+result.total_photos+' photographs analysed. AI wrote '+result.text_blocks+' magazine passages and arranged every photograph full-width with a shared alignment grid. Design: '+designName+'. Review the editorial before publishing.');
   return true;
  }catch(error){message(error.message);return false;}
  finally{busy=false;button.disabled=false;button.textContent='AI arrange & describe';}
