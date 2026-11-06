@@ -197,7 +197,7 @@ function openAdjustments(photo){
  selectedPhotoId=photo.drive_file_id;var a=photo.media.image_adjustments||{},crop=photo.media.crop||{};
  $('adjustName').textContent=photo.name;$('adjustmentsPanel').style.display='block';
  [['brightness',a.brightness||100],['contrast',a.contrast||100],['saturation',a.saturation||100]].forEach(function(pair){$(pair[0]).value=pair[1];$(pair[0]+'Value').textContent=pair[1]+'%';});
- $('cropFit').value=crop.fit==='contain'?'contain':'cover';
+ $('cropFit').value=crop.fit==='cover'?'cover':'contain';
 }
 async function applyAdjustments(){
  var photo=photos.find(function(p){return p.drive_file_id===selectedPhotoId;});if(!photo||!photo.media)return;
