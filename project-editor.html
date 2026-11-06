@@ -212,6 +212,7 @@ async function imageFor(photo){
 }
 function photoState(photo){return photoLibraryState[photo.drive_file_id]||(photoLibraryState[photo.drive_file_id]={selected:!!(photo.media&&!photo.media.is_hidden),trashed:false,previousSelected:false});}
 function orderedPhotos(){return photos.filter(function(p){var st=photoState(p);return st.selected&&!st.trashed&&p.media;}).slice().sort(function(a,b){return Number(photoState(a).order||0)-Number(photoState(b).order||0)||String(a.name).localeCompare(String(b.name));});}
+function selectedFolderPhotos(){return photos.filter(function(p){var st=photoState(p);return st.selected&&!st.trashed;}).slice().sort(function(a,b){return Number(photoState(a).order||0)-Number(photoState(b).order||0)||String(a.name).localeCompare(String(b.name));});}
 async function preloadVisibleImages(items){
  var cursor=0,failed=[];
  await Promise.all(Array.from({length:Math.min(5,items.length)},async function(){
@@ -333,7 +334,7 @@ function renderPhotoPicker(){
   if(objects[photo.drive_file_id]){img.src=objects[photo.drive_file_id];img.dataset.loaded='1';}
   else img.src='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="640" height="480"%3E%3Crect width="100%25" height="100%25" fill="%23e8ebf0"/%3E%3C/svg%3E';
   thumb.appendChild(img);
-  if(photoPickerTab==='main'&&state.selected){var rank=document.createElement('span');rank.className='photo-tile-order';rank.textContent=String(orderedPhotos().findIndex(function(item){return item.drive_file_id===photo.drive_file_id;})+1);thumb.appendChild(rank);}
+  if(photoPickerTab==='main'&&state.selected){var rank=document.createElement('span');rank.className='photo-tile-order';rank.textContent=String(selectedFolderPhotos().findIndex(function(item){return item.drive_file_id===photo.drive_file_id;})+1);thumb.appendChild(rank);}
   var check=document.createElement('span');check.className='photo-tile-check';check.textContent=chosen?'✓':'';thumb.appendChild(check);
   var name=document.createElement('div');name.className='photo-tile-name';name.textContent=photo.name||'Untitled photograph';
   var meta=document.createElement('div');meta.className='photo-tile-meta';
@@ -452,21 +453,20 @@ function closePhotoPicker(){
  $('photoPicker').classList.remove('open');$('photoPicker').setAttribute('aria-hidden','true');
  if(pickerObserver)pickerObserver.disconnect();
 }
-function reorderSelectedPhotos(draggedId,targetId){
- var selected=orderedPhotos().slice();
+async function reorderSelectedPhotos(draggedId,targetId){
+ var selected=selectedFolderPhotos().slice();
  var from=selected.findIndex(function(photo){return photo.drive_file_id===draggedId;});
  var to=selected.findIndex(function(photo){return photo.drive_file_id===targetId;});
  if(from<0||to<0||from===to)return false;
  var moved=selected.splice(from,1)[0];selected.splice(to,0,moved);
  selected.forEach(function(photo,index){photoState(photo).order=index+1;});
- draftLayout.heroMediaId=selected[0]&&selected[0].media?selected[0].media.id:null;
- renderPickerSummary();renderPhotoPicker();renderPreview();
- persistPhotoLibraryState().then(function(){message('Photo order saved. This order will be used by the project page and AI article.');}).catch(function(error){message('Photo order could not be saved: '+error.message);});
+ draftLayout.heroMediaId=(selected.find(function(photo){return photo.media;})||{}).media?(selected.find(function(photo){return photo.media;})||{}).media.id:null;
+ try{await syncSelectedPhotoBlocks();await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();message('Photo order saved. The page preview and future AI article now follow this order.');}catch(error){message('Photo order could not be saved: '+error.message);}
  return true;
 }
 async function togglePhotoSelection(photo){
  var state=photoState(photo),next=!state.selected;
- state.selected=next;state.trashed=false;photo.selected=next&&!state.trashed;if(next){state.order=orderedPhotos().reduce(function(max,item){return Math.max(max,Number(photoState(item).order)||0);},0)+1;}
+ state.selected=next;state.trashed=false;photo.selected=next&&!state.trashed;if(next){state.order=selectedFolderPhotos().reduce(function(max,item){return Math.max(max,Number(photoState(item).order)||0);},0)+1;}
  renderPickerSummary();renderPhotoPicker();renderPreview();
  try{await persistPhotoLibraryState();}
  catch(error){state.selected=!next;photo.selected=state.selected&&!state.trashed;renderPhotoPicker();renderPickerSummary();renderPreview();message('Photo selection could not be saved: '+error.message);}
@@ -476,7 +476,7 @@ async function moveSelectedPhotosToTrash(){
  if(!chosen.length)return;
  if(!confirm('Move '+chosen.length+' selected photograph(s) into Studio Trash? This only changes the website photo library. Google Drive files and folders will not be moved or deleted.'))return;
  chosen.forEach(function(photo){var state=photoState(photo);state.previousSelected=!!state.selected;state.selected=false;state.trashed=true;photo.selected=false;});
- orderedPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});draftLayout.heroMediaId=orderedPhotos()[0]&&orderedPhotos()[0].media?orderedPhotos()[0].media.id:null;
+ selectedFolderPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});draftLayout.heroMediaId=(orderedFolderPhotos().find(function(photo){return photo.media;})||{}).media?(orderedFolderPhotos().find(function(photo){return photo.media;})||{}).media.id:null;
  try{
   await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
   message(chosen.length+' photograph(s) moved to Studio Trash. The original Google Drive folder is unchanged.');
@@ -757,7 +757,7 @@ $('photoPickerGrid').addEventListener('dragend',function(event){
 });
 $('photoPickerGrid').addEventListener('click',async function(event){
  var setCover=event.target.closest('[data-tile-cover]');
- if(setCover){var coverPhoto=photos.find(function(p){return p.drive_file_id===setCover.dataset.tileCover;});if(coverPhoto&&coverPhoto.media){try{var coverOrder=orderedPhotos().filter(function(p){return p.drive_file_id!==coverPhoto.drive_file_id;});coverOrder.unshift(coverPhoto);coverOrder.forEach(function(p,index){photoState(p).order=index+1;});await updateMedia(coverPhoto.media.id,{is_cover:true});draftLayout.heroMediaId=coverPhoto.media.id;await persistPhotoLibraryState();await loadPhotos();message('Cover photograph updated and moved to the first position.');}catch(error){message(error.message);}}return;}
+ if(setCover){var coverPhoto=photos.find(function(p){return p.drive_file_id===setCover.dataset.tileCover;});if(coverPhoto&&coverPhoto.media){try{var coverOrder=selectedFolderPhotos().filter(function(p){return p.drive_file_id!==coverPhoto.drive_file_id;});coverOrder.unshift(coverPhoto);coverOrder.forEach(function(p,index){photoState(p).order=index+1;});await updateMedia(coverPhoto.media.id,{is_cover:true});draftLayout.heroMediaId=coverPhoto.media.id;await persistPhotoLibraryState();await loadPhotos();message('Cover photograph updated and moved to the first position.');}catch(error){message(error.message);}}return;}
  var adjust=event.target.closest('[data-tile-adjust]');
  if(adjust){
   var selectedPhoto=photos.find(function(p){return p.drive_file_id===adjust.dataset.tileAdjust;});
