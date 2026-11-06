@@ -671,7 +671,7 @@ $('photoPickerGrid').addEventListener('keydown',function(event){
  var tile=event.target.closest('[data-photo-id]');if(!tile)return;
  event.preventDefault();tile.click();
 });
-$('photoPicker').addEventListener('keydown',function(event){if(event.key==='Escape')closePhotoPicker();});
+$('photoPicker').addEventListener('keydown',function(event){if(event.key==='Escape'){closePhotoPicker();return;}if(event.key==='Delete'&&photoPickerTab==='main'&&document.activeElement!==$('photoPickerSearch')){event.preventDefault();moveSelectedPhotosToTrash();}});
 ['saveTop','saveBottom'].forEach(function(id){$(id).addEventListener('click',saveDraft);});
 ['publishTop','publishBottom'].forEach(function(id){$(id).addEventListener('click',publish);});
 $('unpublish').addEventListener('click',function(){projectAction('unpublish');});
