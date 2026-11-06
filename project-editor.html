@@ -63,6 +63,14 @@
 .photo-picker button:disabled{opacity:.4;cursor:not-allowed}
 @media(max-width:700px){.photo-picker-header{padding:13px}.photo-picker-toolbar{padding:10px 13px}.photo-picker-grid{padding:12px;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px}.photo-picker-title h2{font-size:18px}.photo-picker-actions .btn{padding:8px;font-size:8px}.picker-search{width:100%}}
 
+
+.photo-tile-order{position:absolute;left:12px;top:12px;min-width:24px;height:24px;padding:0 6px;border-radius:6px;background:#2376e8;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800;box-shadow:0 1px 5px rgba(0,0,0,.2)}
+.photo-tile[draggable="true"]{cursor:grab}
+.photo-tile[draggable="true"]:active{cursor:grabbing}
+.photo-tile.is-dragging{opacity:.38}
+.photo-tile.drop-target{outline:3px dashed #2376e8;outline-offset:-3px}
+.photo-picker-grid{grid-auto-flow:row dense}
+
 </style>
 </head>
 <body>
@@ -194,7 +202,7 @@ async function imageFor(photo){
  var url=URL.createObjectURL(await response.blob());objects[photo.drive_file_id]=url;return url;
 }
 function photoState(photo){return photoLibraryState[photo.drive_file_id]||(photoLibraryState[photo.drive_file_id]={selected:!!(photo.media&&!photo.media.is_hidden),trashed:false,previousSelected:false});}
-function orderedPhotos(){return photos.filter(function(p){var st=photoState(p);return st.selected&&!st.trashed&&p.media;}).slice().sort(function(a,b){return Number((a.media&&a.media.sort_order)||0)-Number((b.media&&b.media.sort_order)||0)||String(a.name).localeCompare(String(b.name));});}
+function orderedPhotos(){return photos.filter(function(p){var st=photoState(p);return st.selected&&!st.trashed&&p.media;}).slice().sort(function(a,b){return Number(photoState(a).order||0)-Number(photoState(b).order||0)||String(a.name).localeCompare(String(b.name));});}
 async function preloadVisibleImages(items){
  var cursor=0,failed=[];
  await Promise.all(Array.from({length:Math.min(5,items.length)},async function(){
@@ -210,16 +218,18 @@ function hydratePhotoLibraryState(){
  var savedById={};
  saved.forEach(function(item){if(item&&item.drive_file_id)savedById[item.drive_file_id]=item;});
  photoLibraryState={};
- photos.forEach(function(photo){
+ photos.forEach(function(photo,index){
   var prior=savedById[photo.drive_file_id];
   photoLibraryState[photo.drive_file_id]=prior?{
    selected:!!prior.selected,
    trashed:!!prior.trashed,
-   previousSelected:!!prior.previousSelected
+   previousSelected:!!prior.previousSelected,
+   order:Number(prior.order)||index+1
   }:{
    selected:!!(photo.media&&!photo.media.is_hidden),
    trashed:false,
-   previousSelected:false
+   previousSelected:false,
+   order:index+1
   };
   photo.selected=photoLibraryState[photo.drive_file_id].selected&&!photoLibraryState[photo.drive_file_id].trashed;
  });
@@ -227,7 +237,7 @@ function hydratePhotoLibraryState(){
 function photoLibraryItems(){
  return photos.map(function(photo){
   var st=photoState(photo);
-  return {drive_file_id:photo.drive_file_id,selected:!!st.selected,trashed:!!st.trashed,previousSelected:!!st.previousSelected};
+  return {drive_file_id:photo.drive_file_id,selected:!!st.selected,trashed:!!st.trashed,previousSelected:!!st.previousSelected,order:Number(st.order)||999999};
  });
 }
 function persistPhotoLibraryState(){
@@ -260,7 +270,7 @@ function renderPickerSummary(){
  $('trashFolderTab').classList.toggle('active',photoPickerTab==='trash');
  $('pickerInstruction').textContent=photoPickerTab==='trash'
   ?'This is Studio Trash. Select photographs and restore them to the project folder.'
-  :'Click thumbnails to select or deselect them. Press Delete to move the blue-outlined photos into this website’s Trash.';
+  :'Click to select/deselect. Drag blue-selected thumbnails to reorder them; top-left is first, then left-to-right and top-to-bottom. Press Delete to move selected photos to this website’s Trash.';
 }
 function loadPickerImage(img){
  var id=img&&img.dataset.previewId;if(!id||img.dataset.loading==='1'||img.dataset.loaded==='1')return;
@@ -292,6 +302,11 @@ function renderPhotoPicker(){
  var items=photos.filter(function(photo){
   var state=photoState(photo);
   return (photoPickerTab==='trash'?state.trashed:!state.trashed)&&(!search||String(photo.name||'').toLowerCase().includes(search));
+ }).slice().sort(function(a,b){
+  var sa=photoState(a),sb=photoState(b);
+  if(photoPickerTab==='main'&&sa.selected!==sb.selected)return sa.selected?-1:1;
+  if(sa.selected&&sb.selected)return Number(sa.order||999999)-Number(sb.order||999999);
+  return String(a.name||'').localeCompare(String(b.name||''));
  });
  if(!items.length){
   var empty=document.createElement('div');empty.className='photo-picker-empty';
@@ -303,13 +318,13 @@ function renderPhotoPicker(){
   var chosen=photoPickerTab==='trash'?!!trashActionSelection[photo.drive_file_id]:!!state.selected;
   var tile=document.createElement('div');
   tile.className='photo-tile'+(chosen?(photoPickerTab==='trash'?' is-action-selected':' is-selected'):'');
-  tile.dataset.photoId=photo.drive_file_id;tile.tabIndex=0;tile.setAttribute('role','button');tile.setAttribute('aria-pressed',chosen?'true':'false');
+  tile.dataset.photoId=photo.drive_file_id;tile.tabIndex=0;tile.setAttribute('role','button');tile.setAttribute('aria-pressed',chosen?'true':'false');tile.draggable=photoPickerTab==='main'&&!!state.selected;tile.title=photoPickerTab==='main'&&state.selected?'Drag to change this photo’s page order':'Click to select or deselect';
   var thumb=document.createElement('div');thumb.className='photo-tile-thumb';
   var img=document.createElement('img');img.alt=photo.name||'Project photograph';img.loading='lazy';img.dataset.previewId=photo.drive_file_id;
   if(objects[photo.drive_file_id]){img.src=objects[photo.drive_file_id];img.dataset.loaded='1';}
   else img.src='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="640" height="480"%3E%3Crect width="100%25" height="100%25" fill="%23e8ebf0"/%3E%3C/svg%3E';
   thumb.appendChild(img);
-  var check=document.createElement('span');check.className='photo-tile-check';check.textContent=chosen?'✓':'';thumb.appendChild(check);
+  if(photoPickerTab==='main'&&state.selected){var rank=document.createElement('span');rank.className='photo-tile-order';rank.textContent=String(orderedPhotos().findIndex(function(item){return item.drive_file_id===photo.drive_file_id;})+1);thumb.appendChild(rank);}\n  var check=document.createElement('span');check.className='photo-tile-check';check.textContent=chosen?'✓':'';thumb.appendChild(check);
   var name=document.createElement('div');name.className='photo-tile-name';name.textContent=photo.name||'Untitled photograph';
   var meta=document.createElement('div');meta.className='photo-tile-meta';
   meta.textContent=photoPickerTab==='trash'?'In Studio Trash · original Drive file untouched':(chosen?'Selected for project page':photo.media?'Imported · not selected':'Available in source folder');
@@ -410,9 +425,21 @@ function closePhotoPicker(){
  $('photoPicker').classList.remove('open');$('photoPicker').setAttribute('aria-hidden','true');
  if(pickerObserver)pickerObserver.disconnect();
 }
+function reorderSelectedPhotos(draggedId,targetId){
+ var selected=orderedPhotos().slice();
+ var from=selected.findIndex(function(photo){return photo.drive_file_id===draggedId;});
+ var to=selected.findIndex(function(photo){return photo.drive_file_id===targetId;});
+ if(from<0||to<0||from===to)return false;
+ var moved=selected.splice(from,1)[0];selected.splice(to,0,moved);
+ selected.forEach(function(photo,index){photoState(photo).order=index+1;});
+ draftLayout.heroMediaId=selected[0]&&selected[0].media?selected[0].media.id:null;
+ renderPickerSummary();renderPhotoPicker();renderPreview();
+ persistPhotoLibraryState().then(function(){message('Photo order saved. This order will be used by the project page and AI article.');}).catch(function(error){message('Photo order could not be saved: '+error.message);});
+ return true;
+}
 async function togglePhotoSelection(photo){
  var state=photoState(photo),next=!state.selected;
- state.selected=next;state.trashed=false;photo.selected=next&&!state.trashed;
+ state.selected=next;state.trashed=false;photo.selected=next&&!state.trashed;if(next){state.order=orderedPhotos().reduce(function(max,item){return Math.max(max,Number(photoState(item).order)||0);},0)+1;}
  renderPickerSummary();renderPhotoPicker();renderPreview();
  try{await persistPhotoLibraryState();}
  catch(error){state.selected=!next;photo.selected=state.selected&&!state.trashed;renderPhotoPicker();renderPickerSummary();renderPreview();message('Photo selection could not be saved: '+error.message);}
@@ -421,7 +448,7 @@ async function moveSelectedPhotosToTrash(){
  var chosen=photos.filter(function(photo){var state=photoState(photo);return state.selected&&!state.trashed;});
  if(!chosen.length)return;
  if(!confirm('Move '+chosen.length+' selected photograph(s) into Studio Trash? This only changes the website photo library. Google Drive files and folders will not be moved or deleted.'))return;
- chosen.forEach(function(photo){var state=photoState(photo);state.previousSelected=!!state.selected;state.selected=false;state.trashed=true;photo.selected=false;});
+ chosen.forEach(function(photo){var state=photoState(photo);state.previousSelected=!!state.selected;state.selected=false;state.trashed=true;photo.selected=false;});\n orderedPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});
  try{
   await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
   message(chosen.length+' photograph(s) moved to Studio Trash. The original Google Drive folder is unchanged.');
@@ -430,7 +457,7 @@ async function moveSelectedPhotosToTrash(){
 async function restoreSelectedPhotos(){
  var chosen=photos.filter(function(photo){return photoState(photo).trashed&&trashActionSelection[photo.drive_file_id];});
  if(!chosen.length)return;
- chosen.forEach(function(photo){var state=photoState(photo);state.trashed=false;state.selected=!!state.previousSelected;state.previousSelected=false;photo.selected=state.selected;});
+ chosen.forEach(function(photo){var state=photoState(photo);state.trashed=false;state.selected=!!state.previousSelected;state.previousSelected=false;photo.selected=state.selected;});\n orderedPhotos().forEach(function(photo,index){photoState(photo).order=index+1;});
  trashActionSelection={};
  try{
   await persistPhotoLibraryState();renderPickerSummary();renderPhotoPicker();renderPreview();
@@ -465,8 +492,7 @@ function renderPreview(){
  var intro='<div class="preview-intro"><div class="eyebrow">PROJECT NOTE</div><p>'+escapeHtml(description)+'</p></div>';
  var elements=draftLayout&&Array.isArray(draftLayout.elements)?draftLayout.elements:[];
  if(!elements.some(function(item){return item&&['text','image'].includes(item.type)&&Number(item.w||item.widthGrid)>0;}))elements=fallbackElements(visible);
- var byMedia={};visible.forEach(function(p){if(p.media)byMedia[p.media.id]=p;});
- var blocks=elements.map(function(item,index){
+ var byMedia={};visible.forEach(function(p){if(p.media)byMedia[p.media.id]=p;});\n var marginColumns=Number(draftLayout&&draftLayout.margin_columns)||(draftLayout&&draftLayout.custom_theme&&Number(draftLayout.custom_theme.margin_columns))||(((parseInt(String(draftLayout&&draftLayout.template||'t01').slice(1),10)||1)-1)%3+1);\n var pageX=marginColumns+1,pageW=48-marginColumns*2,textW=Math.max(18,Math.round(pageW*.5)),textIndex=0;\n var blocks=elements.map(function(item,index){
   if(!item||!['text','image'].includes(item.type))return '';
   var x=Math.max(1,Math.min(48,Number(item.x)||1)),y=Math.max(1,Number(item.y)||1),w=Math.max(4,Math.min(48,Number(item.w)||32)),h=Math.max(3,Math.min(1000,Number(item.h)||8));
   w=Math.min(w,49-x);
@@ -532,8 +558,7 @@ async function generateAiDraft(automatic){
   var designName=result.template==='custom'?'AI-created original design':(selectedTemplate?selectedTemplate.name:result.template_name);
   message('Photo audit complete: '+result.analyzed_photos+'/'+result.total_photos+' photographs analysed. AI wrote '+result.text_blocks+' magazine passages and arranged every photograph full-width with a shared alignment grid. Design: '+designName+'. Review the editorial before publishing.');
   return true;
- }catch(error){message(error.message);return false;}
- finally{busy=false;button.disabled=false;button.textContent='AI arrange & describe';}
+ }catch(error){var detail=String(error.message||'');if(/no credits remaining|insufficient_quota|billing/i.test(detail)){message('AI is blocked because the OpenAI API account has no credits remaining. Add API credits at platform.openai.com/settings/organization/billing, then run AI arrange again. No photos or draft content were published.');}else{message(detail);}return false;}\n finally{busy=false;button.disabled=false;button.textContent='AI arrange & describe';}
 }
 async function publish(){
  if(busy)return;
@@ -673,6 +698,30 @@ $('trashFolderTab').addEventListener('click',function(){photoPickerTab='trash';t
 $('moveToTrash').addEventListener('click',moveSelectedPhotosToTrash);
 $('restoreFromTrash').addEventListener('click',restoreSelectedPhotos);
 $('photoPickerSearch').addEventListener('input',renderPhotoPicker);
+var draggedPhotoId=null,suppressTileClickId=null;
+$('photoPickerGrid').addEventListener('dragstart',function(event){
+ var tile=event.target.closest('[data-photo-id]');if(!tile||!tile.draggable||photoPickerTab!=='main'){event.preventDefault();return;}
+ draggedPhotoId=tile.dataset.photoId;tile.classList.add('is-dragging');
+ if(event.dataTransfer){event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',draggedPhotoId);}
+});
+$('photoPickerGrid').addEventListener('dragover',function(event){
+ var tile=event.target.closest('[data-photo-id]');if(!tile||!draggedPhotoId||photoPickerTab!=='main')return;
+ var target=photos.find(function(photo){return photo.drive_file_id===tile.dataset.photoId;});
+ if(!target||!photoState(target).selected)return;
+ event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect='move';
+ Array.prototype.forEach.call($('photoPickerGrid').querySelectorAll('.drop-target'),function(node){node.classList.remove('drop-target');});
+ if(tile.dataset.photoId!==draggedPhotoId)tile.classList.add('drop-target');
+});
+$('photoPickerGrid').addEventListener('drop',function(event){
+ var tile=event.target.closest('[data-photo-id]');if(!tile||!draggedPhotoId)return;
+ event.preventDefault();var targetId=tile.dataset.photoId,fromId=draggedPhotoId;
+ suppressTileClickId=targetId;draggedPhotoId=null;
+ if(reorderSelectedPhotos(fromId,targetId))return;
+});
+$('photoPickerGrid').addEventListener('dragend',function(event){
+ draggedPhotoId=null;
+ Array.prototype.forEach.call($('photoPickerGrid').querySelectorAll('.is-dragging,.drop-target'),function(node){node.classList.remove('is-dragging','drop-target');});
+});
 $('photoPickerGrid').addEventListener('click',async function(event){
  var setCover=event.target.closest('[data-tile-cover]');
  if(setCover){var coverPhoto=photos.find(function(p){return p.drive_file_id===setCover.dataset.tileCover;});if(coverPhoto&&coverPhoto.media){try{await updateMedia(coverPhoto.media.id,{is_cover:true});draftLayout.heroMediaId=coverPhoto.media.id;await persistPhotoLibraryState();await loadPhotos();message('Cover photograph updated for the project draft.');}catch(error){message(error.message);}}return;}
@@ -681,8 +730,7 @@ $('photoPickerGrid').addEventListener('click',async function(event){
   var selectedPhoto=photos.find(function(p){return p.drive_file_id===adjust.dataset.tileAdjust;});
   closePhotoPicker();if(selectedPhoto)openAdjustments(selectedPhoto);return;
  }
- var tile=event.target.closest('[data-photo-id]');if(!tile)return;
- var photo=photos.find(function(p){return p.drive_file_id===tile.dataset.photoId;});if(!photo)return;
+ var tile=event.target.closest('[data-photo-id]');if(!tile)return;if(suppressTileClickId===tile.dataset.photoId){suppressTileClickId=null;return;}\n var photo=photos.find(function(p){return p.drive_file_id===tile.dataset.photoId;});if(!photo)return;
  if(photoPickerTab==='trash'){
   trashActionSelection[photo.drive_file_id]=!trashActionSelection[photo.drive_file_id];
   renderPhotoPicker();return;
