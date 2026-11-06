@@ -651,7 +651,35 @@ $('layoutTemplate').addEventListener('change',function(){if(this.value!=='ai-cus
 $('generatePage').addEventListener('click',function(){generateAiDraft(false);});
 ['brightness','contrast','saturation'].forEach(function(id){$(id).addEventListener('input',function(){$(id+'Value').textContent=this.value+'%';});});
 $('saveAdjustments').addEventListener('click',applyAdjustments);
-$('prepareAll').addEventListener('click',preparePhotos);$('refreshPhotos').addEventListener('click',loadPhotos);
+$('prepareAll').addEventListener('click',function(){preparePhotos(true);});
+$('refreshPhotos').addEventListener('click',async function(){await loadPhotos();if($('photoPicker').classList.contains('open'))renderPhotoPicker();});
+$('selectImages').addEventListener('click',openPhotoPicker);
+$('closePhotoPicker').addEventListener('click',closePhotoPicker);
+$('mainFolderTab').addEventListener('click',function(){photoPickerTab='main';trashActionSelection={};renderPhotoPicker();});
+$('trashFolderTab').addEventListener('click',function(){photoPickerTab='trash';trashActionSelection={};renderPhotoPicker();});
+$('moveToTrash').addEventListener('click',moveSelectedPhotosToTrash);
+$('restoreFromTrash').addEventListener('click',restoreSelectedPhotos);
+$('photoPickerSearch').addEventListener('input',renderPhotoPicker);
+$('photoPickerGrid').addEventListener('click',async function(event){
+ var adjust=event.target.closest('[data-tile-adjust]');
+ if(adjust){
+  var selectedPhoto=photos.find(function(p){return p.drive_file_id===adjust.dataset.tileAdjust;});
+  closePhotoPicker();if(selectedPhoto)openAdjustments(selectedPhoto);return;
+ }
+ var tile=event.target.closest('[data-photo-id]');if(!tile)return;
+ var photo=photos.find(function(p){return p.drive_file_id===tile.dataset.photoId;});if(!photo)return;
+ if(photoPickerTab==='trash'){
+  trashActionSelection[photo.drive_file_id]=!trashActionSelection[photo.drive_file_id];
+  renderPhotoPicker();return;
+ }
+ await togglePhotoSelection(photo);
+});
+$('photoPickerGrid').addEventListener('keydown',function(event){
+ if(event.key!=='Enter'&&event.key!==' ')return;
+ var tile=event.target.closest('[data-photo-id]');if(!tile)return;
+ event.preventDefault();tile.click();
+});
+$('photoPicker').addEventListener('keydown',function(event){if(event.key==='Escape')closePhotoPicker();});
 ['saveTop','saveBottom'].forEach(function(id){$(id).addEventListener('click',saveDraft);});
 ['publishTop','publishBottom'].forEach(function(id){$(id).addEventListener('click',publish);});
 $('unpublish').addEventListener('click',function(){projectAction('unpublish');});
