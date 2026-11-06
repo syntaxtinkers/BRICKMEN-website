@@ -257,6 +257,8 @@ module.exports = async function generateProject(req, res) {
       ? 'Write a sophisticated, witty, fictional Brickmen superhero comic feature. The team uses imaginative superpowers of light, space, structure, landscape and craft. Clearly present this as creative brand storytelling, never factual project history.'
       : 'Write like a perceptive architectural journalist for an internationally respected architecture magazine. Be literate, atmospheric, observant and specific. Build a coherent architectural argument across the article. No marketing slogans, generic praise, repetitive captions or filler. Let each paragraph reveal a new spatial idea.';
     const existingLayouts = await db('brickmen_project_layouts?select=project_id,draft_layout');
+    const currentLayoutRow = (Array.isArray(existingLayouts) ? existingLayouts : []).find(row => row.project_id === projectId) || null;
+    const savedPhotoLibrary = currentLayoutRow && currentLayoutRow.draft_layout && currentLayoutRow.draft_layout.photo_library ? currentLayoutRow.draft_layout.photo_library : null;
     const occupied = new Set((Array.isArray(existingLayouts) ? existingLayouts : [])
       .filter(row => row.project_id !== projectId && row.draft_layout)
       .map(row => ({ editorial: 't01', minimal: 't04', gallery: 't03' }[row.draft_layout.template] || row.draft_layout.template))
@@ -436,6 +438,7 @@ module.exports = async function generateProject(req, res) {
       heroMediaId: cover.id,
       visual_direction: direction,
       custom_theme: customTheme,
+      photo_library: savedPhotoLibrary || { version: 1, items: [] },
       ai_generated_at: new Date().toISOString(),
       analysis: { total: visible.length, analysed: observations.length, complete: true },
       elements: elements
