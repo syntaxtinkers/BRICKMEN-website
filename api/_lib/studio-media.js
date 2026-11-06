@@ -5,6 +5,8 @@ const { decryptToken } = require('./token-crypto');
 
 const base = () => (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const serviceKey = () => process.env.SUPABASE_SECRET_KEY || '';
+let driveTokenCache = { token: '', expiresAt: 0 };
+const folderImageCache = new Map();
 async function db(path, method, body, prefer) {
   const response = await fetch(base() + '/rest/v1/' + path, {
     method: method || 'GET',
@@ -49,7 +51,9 @@ async function descendants(rootId) {
       } else if (String(item.mime_type || '').startsWith('image/')) images.push(item);
     }
   }
-  return images.sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  images.sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  folderImageCache.set(rootId, { images, expiresAt: Date.now() + 45000 });
+  return images;
 }
 async function driveMedia(token, fileId) {
   const response = await fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) + '?alt=media', { headers: { Authorization: 'Bearer ' + token } });
