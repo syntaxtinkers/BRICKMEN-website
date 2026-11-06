@@ -355,6 +355,22 @@ async function applyAdjustments(){
   await loadPhotos();message('Image adjustments saved to this draft.');
  }catch(error){message(error.message);}
 }
+async function syncSelectedPhotoBlocks(){
+ var elements=Array.isArray(draftLayout&&draftLayout.elements)?draftLayout.elements:[];
+ var existing=new Set(elements.filter(function(item){return item&&item.type==='image';}).map(function(item){return item.mediaId;}));
+ var margin=Number(draftLayout&&draftLayout.margin_columns)||2,x=margin+1,w=48-margin*2;
+ var bottom=4;elements.forEach(function(item){bottom=Math.max(bottom,(Number(item.y)||1)+(Number(item.h)||8));});
+ for(var i=0;i<orderedPhotos().length;i++){
+  var photo=orderedPhotos()[i];if(!photo.media||existing.has(photo.media.id))continue;
+  var url=blobFor(photo.drive_file_id);if(!url)url=await imageFor(photo);
+  var ratio=1.5;
+  try{ratio=await new Promise(function(resolve){var image=new Image();image.onload=function(){resolve(image.naturalWidth&&image.naturalHeight?image.naturalWidth/image.naturalHeight:1.5);};image.onerror=function(){resolve(1.5);};image.src=url;});}catch(_){}
+  var height=Math.max(20,Math.min(86,Math.round((w*20)/(Math.max(.35,ratio)*19))));
+  elements.push({type:'image',mediaId:photo.media.id,x:x,y:bottom+5,w:w,h:height,width:'full',align:'full',fit:'contain',aspect:'natural',caption:photo.media.caption||photo.name});
+  existing.add(photo.media.id);bottom=bottom+height+5;
+ }
+ draftLayout.elements=elements;
+}
 async function preparePhotos(requireSelection){
  if(photoPreparing)return false;
  photoPreparing=true;clearMessage();
@@ -374,7 +390,7 @@ async function preparePhotos(requireSelection){
    button.textContent='Preparing '+Math.min(i+3,pending.length)+' / '+pending.length;
   }
   await loadPhotos();
-  var selectedAfter=photos.filter(function(photo){var st=photoState(photo);return st.selected&&!st.trashed&&photo.media;});
+  await syncSelectedPhotoBlocks();
   await persistPhotoLibraryState();
   await renderPhotos();
   if(imported)message(imported+' selected photographs prepared in private Studio storage. Original Drive files remain in their original folders.');
@@ -431,12 +447,13 @@ function layoutHandles(index){
  return selectedLayoutIndex===index?names.map(function(name){return '<button class="transform-handle" type="button" data-resize="'+name+'" aria-label="Resize '+name+'"></button>';}).join(''):'';
 }
 function fallbackElements(visible){
- var items=[],y=4;
- items.push({type:'text',eyebrow:'PROJECT NOTE',heading:'',body:$('description').value.trim(),x:4,y:y,w:34,h:8,align:'left'});y+=15;
- visible.forEach(function(photo,index){
-  var w=[43,32,24,34][index%4],x=[2,15,13,8][index%4],h=[24,26,31,25][index%4];
-  items.push({type:'image',mediaId:photo.media.id,x:x,y:y,w:w,h:h,caption:photo.media.caption||photo.name});
-  y+=h+7;
+ var items=[],margin=Number(draftLayout&&draftLayout.margin_columns)||2,x=margin+1,w=48-margin*2,y=4;
+ var textW=Math.max(18,Math.round(w*.5));
+ items.push({type:'text',eyebrow:'PROJECT NOTE',heading:'',body:$('description').value.trim(),x:x,y:y,w:textW,h:12,align:'left'});y+=17;
+ visible.forEach(function(photo){
+  var h=30;
+  items.push({type:'image',mediaId:photo.media.id,x:x,y:y,w:w,h:h,width:'full',align:'full',fit:'contain',aspect:'natural',caption:photo.media.caption||photo.name});
+  y+=h+5;
  });
  return items;
 }
@@ -548,9 +565,10 @@ function addImageBlock(photo){
  if(!photo||!photo.media)return;
  var items=draftLayout&&Array.isArray(draftLayout.elements)?draftLayout.elements:[];
  if(items.some(function(item){return item&&item.type==='image'&&item.mediaId===photo.media.id;}))return;
+ var margin=Number(draftLayout&&draftLayout.margin_columns)||2,x=margin+1,w=48-margin*2;
  var bottom=4;items.forEach(function(item){bottom=Math.max(bottom,(Number(item.y)||1)+(Number(item.h)||8));});
- items.push({type:'image',mediaId:photo.media.id,x:3,y:bottom+6,w:42,h:25,caption:photo.media.caption||photo.name,aspect:'natural'});
- draftLayout.elements=items;selectedLayoutIndex=items.length-1;renderPreview();message('Photograph added to the page. Select it on the canvas to move or resize it.');
+ items.push({type:'image',mediaId:photo.media.id,x:x,y:bottom+5,w:w,h:30,width:'full',align:'full',fit:'contain',aspect:'natural',caption:photo.media.caption||photo.name});
+ draftLayout.elements=items;selectedLayoutIndex=items.length-1;renderPreview();message('Photograph added to the page on the shared full-width alignment grid.');
 }
 function addTextBlock(){
  var items=draftLayout&&Array.isArray(draftLayout.elements)?draftLayout.elements:[];
